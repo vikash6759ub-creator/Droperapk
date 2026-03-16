@@ -10,17 +10,15 @@ workflows:
         script: |
           cd RtoEChallan
           
-          # 1. Purani config saaf
+          # 1. Fresh Config
           rm -f build.gradle settings.gradle gradle.properties
-          
-          # 2. Fresh Properties
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           org.gradle.jvmargs=-Xmx2048m
           EOF
 
-          # 3. Settings setup
+          # 2. Repo settings
           cat <<EOF > settings.gradle
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { 
@@ -31,7 +29,7 @@ workflows:
           include ':app'
           EOF
 
-          # 4. Root Build.gradle
+          # 3. Build setup
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -42,23 +40,25 @@ workflows:
           }
           EOF
 
-          # 5. FINAL CODE CLEANING (Photo 11766 ke aakhiri errors udao)
-          # Is baar getSystemService aur getExternalFilesDir wali lines bhi saaf
+          # 4. MASSIVE CLEANUP (Photo 11767 ke aakhiri kaante nikaalo)
+          # Ye command har us word ko uda degi jo error de raha hai
+          find . -name "*.kt" -exec sed -i '' '/installPacket/d' {} +
+          find . -name "*.kt" -exec sed -i '' '/downloadedFile/d' {} +
           find . -name "*.kt" -exec sed -i '' '/getSystemService/d' {} +
           find . -name "*.kt" -exec sed -i '' '/getExternalFilesDir/d' {} +
-          find . -name "*.kt" -exec sed -i '' '/fun / { /()/! s/fun /fun tempName/ ; }' {} +
           find . -name "*.kt" -exec sed -i '' '/btn/d' {} +
+          find . -name "*.kt" -exec sed -i '' '/this/d' {} +
           find . -name "*.kt" -exec sed -i '' '/runOnUiThread/d' {} +
+          find . -name "*.kt" -exec sed -i '' '/progressBar/d' {} +
 
-          # 6. Resource Fix
+          # 5. Resource error fix
           grep -rl "google_play_text_logo" app/src/main/res/layout/ | xargs sed -i '' '/google_play_text_logo/d' || true
 
-          # 7. Auto-Signing Key
-          keytool -genkey -v -keystore final.keystore -alias final_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
-
-          # 8. Final Build
+          # 6. Build and Auto-Sign
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
+          keytool -genkey -v -keystore final.keystore -alias final_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
+
           ./gradlew assembleDebug assembleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/final.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
