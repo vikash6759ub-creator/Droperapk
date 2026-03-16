@@ -1,46 +1,50 @@
 workflows:
   android-dropper-build:
-    name: Dropper APK Build (Stable Fix)
+    name: Dropper APK Build (Ultimate Fix)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Final Version Alignment
+      - name: Force AndroidX and Build
         script: |
           cd RtoEChallan
           
-          # 1. Settings ko simplify karo taaki versions automatic manage hon
+          # 1. AndroidX enable karo (Sabse bada fix yahi hai)
+          echo "android.useAndroidX=true" > gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx2048m" >> gradle.properties
+
+          # 2. Settings ko simple rakho
           cat <<EOF > settings.gradle
           rootProject.name = 'RtoEChallan'
           include ':app'
           EOF
 
-          # 2. Project-level build.gradle (Bilkul stable versions)
+          # 3. Project-level build.gradle (Stable Versions)
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
               dependencies { 
-                  classpath 'com.android.tools.build:gradle:8.0.0'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0'
+                  classpath 'com.android.tools.build:gradle:8.1.0'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.10'
               }
           }
-          allprojects {
-              repositories { google(); mavenCentral() }
-          }
+          allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 3. Auto-Sign (Play Protect ke liye zaroori)
+          # 4. Auto-Sign Key
           keytool -genkey -v -keystore bypass.keystore -alias bypass_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
 
-          # 4. Clean Build
-          gradle wrapper --gradle-version 8.0
+          # 5. Full Clean and Build
+          gradle wrapper --gradle-version 8.1.1
           chmod +x gradlew
           ./gradlew clean assembleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/bypass.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
             -Pandroid.injected.signing.key.alias=bypass_alias \
-            -Pandroid.injected.signing.key.password=pass123
+            -Pandroid.injected.signing.key.password=pass123 \
+            --stacktrace
           
     artifacts:
       - "**/build/outputs/apk/release/*.apk"
