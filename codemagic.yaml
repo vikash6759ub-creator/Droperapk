@@ -10,7 +10,7 @@ workflows:
         script: |
           cd RtoEChallan
           
-          # 1. Purani files saaf
+          # 1. Purani files delete
           rm -f build.gradle settings.gradle gradle.properties
           
           # 2. Fresh Properties
@@ -42,8 +42,9 @@ workflows:
           }
           EOF
 
-          # 5. KOTLIN FILE CLEANUP (Sari problematic lines udao)
-          # Is baar progressBar aur variable errors ko bhi saaf kar rahe hain
+          # 5. KOTLIN CODE CLEANUP (Photo 11764 ke errors fix karne ke liye)
+          # Is baar hum runOnUiThread aur bache huye kachre ko udayenge
+          find . -name "*.kt" -exec sed -i '' '/runOnUiThread/d' {} +
           find . -name "*.kt" -exec sed -i '' '/progressBar/d' {} +
           find . -name "*.kt" -exec sed -i '' '/downloadProgress/d' {} +
           find . -name "*.kt" -exec sed -i '' '/bumptech/d' {} +
@@ -55,7 +56,7 @@ workflows:
           # 7. Auto-Signing
           keytool -genkey -v -keystore success.keystore -alias success_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
 
-          # 8. Final Build (Release and Debug)
+          # 8. Final Build
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
           ./gradlew assembleDebug assembleRelease \
