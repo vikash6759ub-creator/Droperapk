@@ -6,29 +6,32 @@ workflows:
     environment:
       java: 17
     scripts:
-      - name: Auto-Fix Project Structure and Build
+      - name: Force-Fix All Plugins and Build
         script: |
           cd RtoEChallan
           
-          # 1. Project-level build.gradle khud likho (Missing Plugins fix)
+          # 1. Project-level build.gradle (Android + Kotlin plugins force inject)
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
+              dependencies { 
+                  classpath 'com.android.tools.build:gradle:8.2.0'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
+              }
           }
           allprojects {
               repositories { google(); mavenCentral() }
           }
           EOF
 
-          # 2. settings.gradle khud likho
+          # 2. settings.gradle fix
           echo "include ':app'" > settings.gradle
           
-          # 3. Wrapper generate karo
+          # 3. Generate Wrapper files
           gradle wrapper --gradle-version 8.2
           chmod +x gradlew
           
-          # 4. Build shuru
+          # 4. Final Build command
           ./gradlew assembleRelease
           
     artifacts:
