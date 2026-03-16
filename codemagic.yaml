@@ -1,27 +1,29 @@
-# Codemagic Automation - Auto-Generation Version
+# Codemagic Automation - Auto-Fix & Build
 workflows:
   android-dropper-build:
     name: Dropper APK Build
     max_build_duration: 60
     instance_type: mac_mini_m1
-    
     environment:
       java: 17
-
     scripts:
-      - name: Generate Wrapper and Build
+      - name: Auto-Fix and Build
         script: |
-          # 1. Folder mein jao
           cd RtoEChallan
           
-          # 2. Ye command saari missing files (.jar, .properties, .bat) khud bana degi
+          # 1. Agar settings.gradle missing hai toh khud banao
+          if [ ! -f "settings.gradle" ]; then
+            echo "include ':app'" > settings.gradle
+            echo "rootProject.name = 'RtoEChallan'" >> settings.gradle
+          fi
+
+          # 2. Missing Wrapper (jar, bat, properties) khud generate karo
           gradle wrapper --gradle-version 8.2
           
-          # 3. Permissions set karo
           chmod +x gradlew
           
-          # 4. APK build karo
+          # 3. APK Build shuru karo
           ./gradlew assembleRelease
-
+          
     artifacts:
       - "RtoEChallan/app/build/outputs/apk/release/*.apk"
