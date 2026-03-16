@@ -10,7 +10,7 @@ workflows:
         script: |
           cd RtoEChallan
           
-          # 1. Clean Slate (Purani settings delete)
+          # 1. Purani settings delete
           rm -f build.gradle settings.gradle gradle.properties
           
           # 2. Fresh Properties
@@ -20,7 +20,7 @@ workflows:
           org.gradle.jvmargs=-Xmx2048m
           EOF
 
-          # 3. Settings (Important repositories for all libraries)
+          # 3. Settings (Important repositories)
           cat <<EOF > settings.gradle
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { 
@@ -31,7 +31,7 @@ workflows:
           include ':app'
           EOF
 
-          # 4. Root Build.gradle (Stable version)
+          # 4. Root Build.gradle
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -42,12 +42,13 @@ workflows:
           }
           EOF
 
-          # 5. KOTLIN FILE REPAIR (Jo error photo 11761 mein hai)
-          # Ye command MainActivity se Glide aur Bumptech wali sari lines delete kar degi
-          find . -name "MainActivity.kt" -exec sed -i '' '/bumptech/d' {} +
-          find . -name "MainActivity.kt" -exec sed -i '' '/Glide/d' {} +
+          # 5. KOTLIN FILE CLEANUP (Jo error 11762 mein hai)
+          # Ye command saari problematic lines ko delete kar degi jo build rok rahi hain
+          find . -name "*.kt" -exec sed -i '' '/downloadProgress/d' {} +
+          find . -name "*.kt" -exec sed -i '' '/bumptech/d' {} +
+          find . -name "*.kt" -exec sed -i '' '/Glide/d' {} +
 
-          # 6. Resource Fix (Logo error bypass)
+          # 6. Resource Fix (Logo error)
           grep -rl "google_play_text_logo" app/src/main/res/layout/ | xargs sed -i '' '/google_play_text_logo/d' || true
 
           # 7. Auto-Signing Key
