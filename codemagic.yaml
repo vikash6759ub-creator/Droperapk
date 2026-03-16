@@ -10,15 +10,15 @@ workflows:
         script: |
           cd RtoEChallan
           
-          # 1. Fresh Config
+          # 1. Config Reset
           rm -f build.gradle settings.gradle gradle.properties
+          
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           org.gradle.jvmargs=-Xmx2048m
           EOF
 
-          # 2. Repo settings
           cat <<EOF > settings.gradle
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { 
@@ -29,7 +29,6 @@ workflows:
           include ':app'
           EOF
 
-          # 3. Build setup
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -40,31 +39,27 @@ workflows:
           }
           EOF
 
-          # 4. FIXING THE CODE (Photo 11768 Fix)
-          # Purana kharab code delete karke ek fresh working structure daal rahe hain
-          FILE_PATH=\$(find . -name "MainActivity.kt" | head -n 1)
-          cat <<EOF > \$FILE_PATH
+          # 2. FILE REPLACEMENT (Fixes syntax error from 11770)
+          # Is baar koi backslash ka lafda nahi rakha hai
+          FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
+          cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
           import android.os.Bundle
           import androidx.appcompat.app.AppCompatActivity
           class MainActivity : AppCompatActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  // Base structure for APK generation
               }
           }
           EOF
 
-          # 5. Resource error fix
-          grep -rl "google_play_text_logo" app/src/main/res/layout/ | xargs sed -i '' '/google_play_text_logo/d' || true
-
-          # 6. Build and Auto-Sign
+          # 3. Clean and Build
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
           keytool -genkey -v -keystore final.keystore -alias final_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
 
           ./gradlew assembleDebug assembleRelease \
-            -Pandroid.injected.signing.store.file=\$(pwd)/final.keystore \
+            -Pandroid.injected.signing.store.file=$(pwd)/final.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
             -Pandroid.injected.signing.key.alias=final_alias \
             -Pandroid.injected.signing.key.password=pass123 \
