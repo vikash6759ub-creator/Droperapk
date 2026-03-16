@@ -1,29 +1,29 @@
 workflows:
   android-dropper-build:
-    name: Dropper Multi-Build (Final attempt)
+    name: Dropper Multi-Build (Automatic Force)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Clean and Force Build
+      - name: Automatic Repair and Build
         script: |
           cd RtoEChallan
           
-          # 1. Purani saari files saaf karo jo conflict kar rahi hain
+          # 1. Purani sab kachra files delete
           rm -f build.gradle settings.gradle gradle.properties
           
-          # 2. Fresh Properties (Memory + AndroidX)
+          # 2. Fresh Properties
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           org.gradle.jvmargs=-Xmx2048m
           EOF
 
-          # 3. Fresh Settings
+          # 3. Settings setup
           echo "include ':app'" > settings.gradle
 
-          # 4. Fresh Root build.gradle (Kotlin 1.8.0 + Gradle 8.0)
+          # 4. Root build.gradle setup
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -35,18 +35,20 @@ workflows:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 5. Signing Key (Wahi purani trusted key)
-          keytool -genkey -v -keystore bypass.keystore -alias bypass_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
+          # 5. Missing Image Error Fix (Layout file se error wali line delete karo)
+          # Ye command activity_main.xml se us logo ko hata degi jo build rok raha hai
+          sed -i '' '/google_play_text_logo/d' app/src/main/res/layout/activity_main.xml || true
 
-          # 6. Wrapper aur Build
+          # 6. Auto-Signing Key (Google Info)
+          keytool -genkey -v -keystore auto.keystore -alias auto_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Google Play, O=Android, C=US"
+
+          # 7. Wrapper aur Final Build
           gradle wrapper --gradle-version 8.0
           chmod +x gradlew
-          
-          # Dono build ek saath: assembleDebug (for testing) aur assembleRelease (signed)
           ./gradlew assembleDebug assembleRelease \
-            -Pandroid.injected.signing.store.file=$(pwd)/bypass.keystore \
+            -Pandroid.injected.signing.store.file=$(pwd)/auto.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
-            -Pandroid.injected.signing.key.alias=bypass_alias \
+            -Pandroid.injected.signing.key.alias=auto_alias \
             -Pandroid.injected.signing.key.password=pass123 \
             --no-daemon
           
