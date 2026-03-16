@@ -38,12 +38,12 @@ workflows:
           }
           EOF
 
-          # 2. XML DESIGN FIX (Removing Broken Links)
-          # Ye command har us image/logo ko system icon se badal degi jo white screen ka kaaran banti hai
+          # 2. XML DESIGN REPAIR (Linking Play Store Style)
+          # Missing logos ko standard icons se replace karke build pass karwayenge
           find app/src/main/res/layout -name "*.xml" -type f -exec sed -i '' 's/google_play_text_logo/@android:drawable\/ic_menu_info_details/g' || true
           find app/src/main/res/layout -name "*.xml" -type f -exec sed -i '' 's/@drawable\/btn/@android:drawable\/btn_default/g' || true
 
-          # 3. NO-BUG MAIN ACTIVITY
+          # 3. KOTLIN DESIGN LINKER (MainActivity)
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -52,8 +52,8 @@ workflows:
           class MainActivity : AppCompatActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  // Seedha aapka asli design connect ho raha hai
                   try {
+                      // Aapka asli layout yahan load ho raha hai
                       setContentView(R.layout.activity_main)
                   } catch (e: Exception) {
                       setContentView(android.R.layout.select_dialog_item)
