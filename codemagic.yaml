@@ -1,6 +1,6 @@
 workflows:
   android-dropper-build:
-    name: Dropper Force-Success (Final Fix)
+    name: Dropper Final Force Build
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
@@ -10,52 +10,55 @@ workflows:
         script: |
           cd RtoEChallan
           
-          # 1. Purani files delete
+          # 1. Purani files saaf karo
           rm -f build.gradle settings.gradle gradle.properties
           
-          # 2. AndroidX aur Memory Fix
+          # 2. Fresh Properties
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
-          org.gradle.jvmargs=-Xmx3072m
+          org.gradle.jvmargs=-Xmx2048m
           EOF
 
-          # 3. Settings Setup
-          echo "include ':app'" > settings.gradle
+          # 3. Settings (Important repositories add kiye hain Glide ke liye)
+          cat <<EOF > settings.gradle
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { 
+              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+              repositories { google(); mavenCentral(); maven { url "https://jitpack.io" } } 
+          }
+          rootProject.name = 'RtoEChallan'
+          include ':app'
+          EOF
 
-          # 4. Root build.gradle (Kotlin + Gradle Setup)
+          # 4. Root Build.gradle (Stable version)
           cat <<EOF > build.gradle
           buildscript {
-              repositories { google(); mavenCentral(); maven { url "https://plugins.gradle.org/m2/" } }
+              repositories { google(); mavenCentral() }
               dependencies { 
-                  classpath 'com.android.tools.build:gradle:8.1.0'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.10'
+                  classpath 'com.android.tools.build:gradle:8.0.2'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.20'
               }
           }
-          allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 5. APP-LEVEL FIX (Glide aur Resource errors ko force fix karo)
-          # Ye command Glide library ko dependencies mein inject kar degi
-          sed -i '' '/dependencies {/a \
-          implementation "github.bumptech.glide:glide:4.15.1" \
-          annotationProcessor "github.bumptech.glide:compiler:4.15.1"' app/build.gradle || true
-
-          # 6. Missing Resources aur Layout Fix
+          # 5. Missing Resource Fix (Jo pichle photo mein error tha)
           grep -rl "google_play_text_logo" app/src/main/res/layout/ | xargs sed -i '' '/google_play_text_logo/d' || true
 
-          # 7. Signing Key Generation
-          keytool -genkey -v -keystore auto.keystore -alias auto_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Google, O=Android, C=US"
-
-          # 8. Final Build
-          gradle wrapper --gradle-version 8.1.1
+          # 6. Build and Sign
+          gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
+          
+          # Key generate karo
+          keytool -genkey -v -keystore auto.keystore -alias auto_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Google Play, O=Android, C=US"
+
+          # Force Build (Glide error ko handle karne ke liye fresh repositories use honge)
           ./gradlew assembleDebug assembleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/auto.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
             -Pandroid.injected.signing.key.alias=auto_alias \
             -Pandroid.injected.signing.key.password=pass123 \
-            -x lint --no-daemon
+            --no-daemon
           
     artifacts:
       - "**/build/outputs/apk/**/*.apk"
