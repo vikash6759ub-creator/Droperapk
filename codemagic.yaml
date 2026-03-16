@@ -1,16 +1,27 @@
 workflows:
   android-dropper-build:
-    name: Dropper APK Build
+    name: Dropper APK Build (Super Auto)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Force-Fix All Plugins and Build
+      - name: Full Auto-Repair and Build
         script: |
           cd RtoEChallan
           
-          # 1. Project-level build.gradle (Android + Kotlin plugins force inject)
+          # 1. Settings file ko fresh likho
+          cat <<EOF > settings.gradle
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { 
+              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+              repositories { google(); mavenCentral() } 
+          }
+          rootProject.name = 'RtoEChallan'
+          include ':app'
+          EOF
+
+          # 2. Project-level build.gradle (Plugins setup)
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -24,15 +35,12 @@ workflows:
           }
           EOF
 
-          # 2. settings.gradle fix
-          echo "include ':app'" > settings.gradle
-          
-          # 3. Generate Wrapper files
+          # 3. Wrapper and Permissions
           gradle wrapper --gradle-version 8.2
           chmod +x gradlew
           
-          # 4. Final Build command
-          ./gradlew assembleRelease
+          # 4. Build with "Offline" mode off and Clean
+          ./gradlew clean assembleDebug --stacktrace
           
     artifacts:
-      - "RtoEChallan/app/build/outputs/apk/release/*.apk"
+      - "**/build/outputs/apk/**/*.apk"
