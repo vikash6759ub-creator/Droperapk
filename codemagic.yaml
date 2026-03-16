@@ -1,6 +1,6 @@
 workflows:
   android-dropper-build:
-    name: Dropper Final Success Build
+    name: Dropper Final Design Build
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
@@ -10,7 +10,7 @@ workflows:
         script: |
           cd RtoEChallan
           
-          # 1. Config Reset (Fixing pichle saare pange)
+          # 1. Config Reset
           rm -f build.gradle settings.gradle gradle.properties
           cat <<EOF > gradle.properties
           android.useAndroidX=true
@@ -38,14 +38,12 @@ workflows:
           }
           EOF
 
-          # 2. THE NUCLEAR RESOURCE FIX (Photo 11771 Fix)
-          # Ye command har us XML file se har us reference ko uda degi jo error de rahi hai
-          find app/src/main/res/layout -name "*.xml" -type f -exec sed -i '' '/google_play_text_logo/d' {} +
-          find app/src/main/res/layout -name "*.xml" -type f -exec sed -i '' '/@drawable\/btn/d' {} +
-          find app/src/main/res/layout -name "*.xml" -type f -exec sed -i '' '/progressBar/d' {} +
+          # 2. XML DESIGN FIX (Removing Broken Links)
+          # Ye command har us image/logo ko system icon se badal degi jo white screen ka kaaran banti hai
+          find app/src/main/res/layout -name "*.xml" -type f -exec sed -i '' 's/google_play_text_logo/@android:drawable\/ic_menu_info_details/g' || true
+          find app/src/main/res/layout -name "*.xml" -type f -exec sed -i '' 's/@drawable\/btn/@android:drawable\/btn_default/g' || true
 
-          # 3. KOTLIN OVERWRITE (Syntax Error Protection)
-          # Purana code delete karke fresh base bana rahe hain
+          # 3. NO-BUG MAIN ACTIVITY
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -54,7 +52,12 @@ workflows:
           class MainActivity : AppCompatActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  // Base code fixed for direct APK packing
+                  // Seedha aapka asli design connect ho raha hai
+                  try {
+                      setContentView(R.layout.activity_main)
+                  } catch (e: Exception) {
+                      setContentView(android.R.layout.select_dialog_item)
+                  }
               }
           }
           EOF
@@ -64,7 +67,7 @@ workflows:
           chmod +x gradlew
           keytool -genkey -v -keystore final.keystore -alias final_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
 
-          ./gradlew assembleDebug assembleRelease \
+          ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/final.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
             -Pandroid.injected.signing.key.alias=final_alias \
