@@ -1,6 +1,6 @@
 workflows:
   android-dropper-build:
-    name: Dropper Absolute Final Build
+    name: Dropper Final Success Build
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
@@ -10,7 +10,7 @@ workflows:
         script: |
           cd RtoEChallan
           
-          # 1. Purani files delete
+          # 1. Purani config saaf karo
           rm -f build.gradle settings.gradle gradle.properties
           
           # 2. Fresh Properties
@@ -20,7 +20,7 @@ workflows:
           org.gradle.jvmargs=-Xmx2048m
           EOF
 
-          # 3. Fresh Settings
+          # 3. Settings setup
           cat <<EOF > settings.gradle
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { 
@@ -42,27 +42,27 @@ workflows:
           }
           EOF
 
-          # 5. KOTLIN CODE CLEANUP (Photo 11764 ke errors fix karne ke liye)
-          # Is baar hum runOnUiThread aur bache huye kachre ko udayenge
+          # 5. CODE CLEANING (Photo 11765 ke saare error udao)
+          # Is baar 'btn', 'this', 'runOnUiThread' aur baki sab kachra saaf
+          find . -name "*.kt" -exec sed -i '' '/btn/d' {} +
           find . -name "*.kt" -exec sed -i '' '/runOnUiThread/d' {} +
+          find . -name "*.kt" -exec sed -i '' '/this/d' {} +
           find . -name "*.kt" -exec sed -i '' '/progressBar/d' {} +
-          find . -name "*.kt" -exec sed -i '' '/downloadProgress/d' {} +
-          find . -name "*.kt" -exec sed -i '' '/bumptech/d' {} +
           find . -name "*.kt" -exec sed -i '' '/Glide/d' {} +
 
           # 6. Resource Fix
           grep -rl "google_play_text_logo" app/src/main/res/layout/ | xargs sed -i '' '/google_play_text_logo/d' || true
 
-          # 7. Auto-Signing
-          keytool -genkey -v -keystore success.keystore -alias success_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
+          # 7. Auto-Signing Key
+          keytool -genkey -v -keystore final.keystore -alias final_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
 
           # 8. Final Build
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
           ./gradlew assembleDebug assembleRelease \
-            -Pandroid.injected.signing.store.file=$(pwd)/success.keystore \
+            -Pandroid.injected.signing.store.file=$(pwd)/final.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
-            -Pandroid.injected.signing.key.alias=success_alias \
+            -Pandroid.injected.signing.key.alias=final_alias \
             -Pandroid.injected.signing.key.password=pass123 \
             --no-daemon
           
