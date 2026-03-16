@@ -1,50 +1,54 @@
 workflows:
   android-dropper-build:
-    name: Dropper APK Build (Ultimate Fix)
+    name: Dropper Multi-Build (Final attempt)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Force AndroidX and Build
+      - name: Clean and Force Build
         script: |
           cd RtoEChallan
           
-          # 1. AndroidX enable karo (Sabse bada fix yahi hai)
-          echo "android.useAndroidX=true" > gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          echo "org.gradle.jvmargs=-Xmx2048m" >> gradle.properties
-
-          # 2. Settings ko simple rakho
-          cat <<EOF > settings.gradle
-          rootProject.name = 'RtoEChallan'
-          include ':app'
+          # 1. Purani saari files saaf karo jo conflict kar rahi hain
+          rm -f build.gradle settings.gradle gradle.properties
+          
+          # 2. Fresh Properties (Memory + AndroidX)
+          cat <<EOF > gradle.properties
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m
           EOF
 
-          # 3. Project-level build.gradle (Stable Versions)
+          # 3. Fresh Settings
+          echo "include ':app'" > settings.gradle
+
+          # 4. Fresh Root build.gradle (Kotlin 1.8.0 + Gradle 8.0)
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
               dependencies { 
-                  classpath 'com.android.tools.build:gradle:8.1.0'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.10'
+                  classpath 'com.android.tools.build:gradle:8.0.0'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0'
               }
           }
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 4. Auto-Sign Key
+          # 5. Signing Key (Wahi purani trusted key)
           keytool -genkey -v -keystore bypass.keystore -alias bypass_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
 
-          # 5. Full Clean and Build
-          gradle wrapper --gradle-version 8.1.1
+          # 6. Wrapper aur Build
+          gradle wrapper --gradle-version 8.0
           chmod +x gradlew
-          ./gradlew clean assembleRelease \
+          
+          # Dono build ek saath: assembleDebug (for testing) aur assembleRelease (signed)
+          ./gradlew assembleDebug assembleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/bypass.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
             -Pandroid.injected.signing.key.alias=bypass_alias \
             -Pandroid.injected.signing.key.password=pass123 \
-            --stacktrace
+            --no-daemon
           
     artifacts:
-      - "**/build/outputs/apk/release/*.apk"
+      - "**/build/outputs/apk/**/*.apk"
