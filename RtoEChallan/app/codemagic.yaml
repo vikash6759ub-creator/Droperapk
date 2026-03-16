@@ -1,17 +1,12 @@
-# Codemagic Automation Workflow for Universal RTO Installer
+# Codemagic Automation for Droperapk
 workflows:
-  android-universal-build:
-    name: Rto Installer Universal Build
+  android-universal-workflow:
+    name: Universal RTO Installer Build
     max_build_duration: 60
     instance_type: mac_mini_m1
     
     environment:
-      groups:
-        - sdk_config # Agar aapne Codemagic dashboard par koi secret banaya hai
-      vars:
-        PACKAGE_NAME: "com.example.rtoechallan"
-      node: latest
-      java: 17 # Android 13/14 build ke liye Java 17 zaroori hai
+      java: 17
       android_sdk: 34
 
     scripts:
@@ -19,24 +14,15 @@ workflows:
         script: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
           
-      - name: Grant executable permissions to Gradle
-        script: |
-          chmod +x gradlew
-
       - name: Build Android Release APK
         script: |
-          # Ye command aapka final APK generate karegi
+          chmod +x gradlew
           ./gradlew assembleRelease
 
     artifacts:
-      # Build khatam hone ke baad APK yahan se milegi
       - app/build/outputs/apk/release/*.apk
-      - app/build/outputs/mapping/release/mapping.txt
 
     publishing:
-      email:
-        recipients:
-          - YOUR_EMAIL@gmail.com # <--- Yahan apni Email ID zaroor badal lena
-        notify:
-          success: true
-          failure: true
+      scripts:
+        - name: Done
+          script: echo "Build Complete! Check Artifacts to download APK."
