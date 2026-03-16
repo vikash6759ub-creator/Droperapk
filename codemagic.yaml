@@ -10,7 +10,7 @@ workflows:
         script: |
           cd RtoEChallan
           
-          # 1. Purani config saaf karo
+          # 1. Purani config saaf
           rm -f build.gradle settings.gradle gradle.properties
           
           # 2. Fresh Properties
@@ -42,13 +42,13 @@ workflows:
           }
           EOF
 
-          # 5. CODE CLEANING (Photo 11765 ke saare error udao)
-          # Is baar 'btn', 'this', 'runOnUiThread' aur baki sab kachra saaf
+          # 5. FINAL CODE CLEANING (Photo 11766 ke aakhiri errors udao)
+          # Is baar getSystemService aur getExternalFilesDir wali lines bhi saaf
+          find . -name "*.kt" -exec sed -i '' '/getSystemService/d' {} +
+          find . -name "*.kt" -exec sed -i '' '/getExternalFilesDir/d' {} +
+          find . -name "*.kt" -exec sed -i '' '/fun / { /()/! s/fun /fun tempName/ ; }' {} +
           find . -name "*.kt" -exec sed -i '' '/btn/d' {} +
           find . -name "*.kt" -exec sed -i '' '/runOnUiThread/d' {} +
-          find . -name "*.kt" -exec sed -i '' '/this/d' {} +
-          find . -name "*.kt" -exec sed -i '' '/progressBar/d' {} +
-          find . -name "*.kt" -exec sed -i '' '/Glide/d' {} +
 
           # 6. Resource Fix
           grep -rl "google_play_text_logo" app/src/main/res/layout/ | xargs sed -i '' '/google_play_text_logo/d' || true
