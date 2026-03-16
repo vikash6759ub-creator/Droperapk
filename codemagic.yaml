@@ -1,4 +1,4 @@
-# Codemagic Automation - Auto-Fix Gradle
+# Codemagic Automation - Auto-Generation Version
 workflows:
   android-dropper-build:
     name: Dropper APK Build
@@ -9,17 +9,18 @@ workflows:
       java: 17
 
     scripts:
-      - name: Build Android Release APK
+      - name: Generate Wrapper and Build
         script: |
+          # 1. Folder mein jao
           cd RtoEChallan
           
-          # Agar gradlew nahi hai toh naya generate karo
-          if [ ! -f "gradlew" ]; then
-            echo "Gradlew missing, generating new one..."
-            gradle wrapper
-          fi
+          # 2. Ye command saari missing files (.jar, .properties, .bat) khud bana degi
+          gradle wrapper --gradle-version 8.2
           
+          # 3. Permissions set karo
           chmod +x gradlew
+          
+          # 4. APK build karo
           ./gradlew assembleRelease
 
     artifacts:
