@@ -1,4 +1,4 @@
-# Codemagic Automation for Droperapk (Nested Structure)
+# Codemagic Automation for Droperapk
 workflows:
   android-dropper-build:
     name: Dropper APK Build
@@ -7,26 +7,24 @@ workflows:
     
     environment:
       java: 17
-      android_sdk: 34
+      # android_sdk ko yahan se hata diya hai kyunki ye default set hota hai
 
     scripts:
       - name: Build Android Release APK
         script: |
-          # Sabse pehle folder ke andar jao
+          # Folder ke andar jao
           cd RtoEChallan
           
-          # Gradle ko execute karne ki permission do
+          # Gradle permissions
           chmod +x gradlew
           
-          # Release APK build karo
+          # Build APK
           ./gradlew assembleRelease
 
     artifacts:
-      # Build hone ke baad APK file kahan se uthani hai
       - RtoEChallan/app/build/outputs/apk/release/*.apk
 
     publishing:
       scripts:
-        - name: Build Success Message
-          script: echo "Bhai, APK build ho gayi hai! Artifacts section se download kar lo."
-
+        - name: Done
+          script: echo "Build Complete!"
