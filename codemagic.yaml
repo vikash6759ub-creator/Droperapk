@@ -6,17 +6,26 @@ workflows:
     environment:
       java: 17
     scripts:
-      - name: Direct Root Build
+      - name: Master Auto-Fix
         script: |
-          # 1. Seedha Main Project Root mein jana
-          # 11819.jpg ke hisaab se aapka project 'RtoEChallan' folder mein hai
-          cd RtoEChallan || cd .
+          # 1. Project Root Locator (Full Automatic)
+          # Hum settings.gradle dhoond rahe hain jo asli project ka center hai
+          MAIN_SETTINGS=$(find . -name "settings.gradle" | head -n 1)
+          
+          if [ -z "$MAIN_SETTINGS" ]; then
+            echo "ERROR: Bhai, repo mein settings.gradle nahi mil raha! Files check karo."
+            exit 1
+          fi
 
-          # 2. Logo Force Copy (mainlogo.png)
+          PROJECT_ROOT=$(dirname "$MAIN_SETTINGS")
+          cd "$PROJECT_ROOT"
+          echo "Building from confirmed root: $(pwd)"
+
+          # 2. Logo & UI Injection
           mkdir -p app/src/main/res/drawable
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
-
-          # 3. UI Fix: Progress Bar & Logo
+          
+          # Layout Update: Round Progress Bar + Logo
           LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
           if [ -n "$LAYOUT_FILE" ]; then
           cat <<EOF > "$LAYOUT_FILE"
@@ -30,18 +39,17 @@ workflows:
                   android:layout_centerInParent="true" android:indeterminateTint="#2196F3" />
               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                   android:layout_below="@id/logo" android:layout_centerHorizontal="true"
-                  android:layout_marginTop="25dp" android:text="Syncing RTO Data..."
+                  android:layout_marginTop="25dp" android:text="Official RTO Data Syncing..."
                   android:textColor="#000000" android:textStyle="bold" />
           </RelativeLayout>
           EOF
           fi
 
-          # 4. Build Force
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version 8.0.2
-          fi
+          # 3. Build Wrapper Generation (Fixes Error 127/11820.jpg)
+          # Agar gradlew file gayab hai toh hum naya banayenge
+          gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
-
+          
     artifacts:
       - "**/build/outputs/apk/release/*.apk"
