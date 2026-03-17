@@ -1,41 +1,63 @@
 workflows:
   android-dropper-build:
-    name: RTO Ultimate Success
+    name: RTO Final Branded Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Final Force Build
+      - name: Inject Logo and Progress Bar
         script: |
-          # 1. Project Folder Hunter
-          echo "Finding the real project folder..."
-          # Hum settings.gradle dhoond rahe hain kyunki wahi asli project root hai
+          # 1. Project Root Locator (Fixes 11804.jpg)
           SETTINGS_FILE=$(find . -name "settings.gradle" | head -n 1)
+          ROOT_DIR=$(dirname "$SETTINGS_FILE")
+          cd "$ROOT_DIR"
+
+          # 2. Logo Injection (mainlogo.png)
+          mkdir -p app/src/main/res/drawable
+          find ../ -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           
-          if [ -n "$SETTINGS_FILE" ]; then
-            PROJECT_ROOT=$(dirname "$SETTINGS_FILE")
-            cd "$PROJECT_ROOT"
-            echo "Moving to project root: $(pwd)"
-          else
-            echo "ERROR: settings.gradle nahi mila! Repo check karo."
-            exit 1
+          # Drawer Header Update
+          HEADER_FILE=$(find . -name "nav_header_main.xml" | head -n 1)
+          if [ -n "$HEADER_FILE" ]; then
+            sed -i '' 's/android:src=".*"/android:src="@drawable\/mainlogo"/g' "$HEADER_FILE"
           fi
 
-          # 2. Permissions & Background Logic Fix (Fixes 11798.jpg)
-          find . -name "AndroidManifest.xml" -exec sed -i '' '/<application/i \
-          <uses-permission android:name="android.permission.INTERNET" /> \
-          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
-          <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' {} +
+          # 3. Layout Update (Adding Round Progress Bar)
+          LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
+          cat <<EOF > "$LAYOUT_FILE"
+          <?xml version="1.0" encoding="utf-8"?>
+          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="#FFFFFF">
+              <ImageView
+                  android:layout_width="150dp"
+                  android:layout_height="150dp"
+                  android:layout_centerInParent="true"
+                  android:src="@drawable/mainlogo" />
+              <ProgressBar
+                  android:id="@+id/loadingBar"
+                  style="?android:attr/progressBarStyleLarge"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_centerInParent="true"
+                  android:indeterminateTint="#2196F3" />
+              <TextView
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_below="@id/loadingBar"
+                  android:layout_centerHorizontal="true"
+                  android:layout_marginTop="20dp"
+                  android:text="Syncing RTO Data... Please Wait"
+                  android:textColor="#000000"
+                  android:textStyle="bold" />
+          </RelativeLayout>
+          EOF
 
-          # 3. Create Gradle Wrapper if missing (Fixes 11804.jpg)
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version 8.0.2
-          fi
+          # 4. Final Build
           chmod +x gradlew
-
-          # 4. Final Assemble
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
           
     artifacts:
-      - "**/build/outputs/apk/**/*.apk"
+      - "**/build/outputs/apk/release/*.apk"
