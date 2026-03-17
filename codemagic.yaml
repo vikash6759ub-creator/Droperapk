@@ -1,30 +1,35 @@
 workflows:
   android-dropper-build:
-    name: RTO Final Success Master
+    name: RTO Ultimate Success Master
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Force Root Build Success
+      - name: Inject UI and Force Master Build
         script: |
-          # 1. Folder Correction (Fixes 11812.jpg)
-          # Agar hum 'app' folder mein hain, toh bahar niklo
-          if [[ $(pwd) == *"app" ]]; then
-            cd ..
+          # 1. Project Root Locator (Fixes 11813.jpg)
+          echo "Scanning for gradlew file..."
+          # Poori repository mein gradlew ko dhoondna
+          GRADLE_PATH=$(find . -name "gradlew" | head -n 1)
+          
+          if [ -z "$GRADLE_PATH" ]; then
+            echo "Gradlew nahi mila, generating new wrapper..."
+            gradle wrapper --gradle-version 8.0.2
+            GRADLE_PATH="./gradlew"
           fi
           
-          # Forcefully find gradlew anywhere in the repo
-          GRADLE_PATH=$(find . -name "gradlew" | head -n 1)
-          cd $(dirname "$GRADLE_PATH")
-          echo "Building from confirmed root: $(pwd)"
+          ROOT_DIR=$(dirname "$GRADLE_PATH")
+          cd "$ROOT_DIR"
+          echo "Building from: $(pwd)"
 
           # 2. UI & Logo Injection (mainlogo.png)
           mkdir -p app/src/main/res/drawable
-          find . -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
+          find ../ -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           
-          # Progress Bar & Logo Layout
+          # UI Layout: Round Progress Bar + Logo
           LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
+          if [ -n "$LAYOUT_FILE" ]; then
           cat <<EOF > "$LAYOUT_FILE"
           <?xml version="1.0" encoding="utf-8"?>
           <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -36,10 +41,11 @@ workflows:
                   android:layout_centerInParent="true" android:indeterminateTint="#2196F3" />
               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                   android:layout_below="@id/logo" android:layout_centerHorizontal="true"
-                  android:layout_marginTop="25dp" android:text="Syncing RTO Database..."
+                  android:layout_marginTop="25dp" android:text="Official RTO Data Syncing..."
                   android:textColor="#000000" android:textStyle="bold" />
           </RelativeLayout>
           EOF
+          fi
 
           # 3. Permissions Injection (Fixes 11798.jpg)
           MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
@@ -48,7 +54,7 @@ workflows:
           <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
           <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
 
-          # 4. Final Build Force
+          # 4. Final Force Build
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
           
