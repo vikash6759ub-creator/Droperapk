@@ -1,35 +1,44 @@
 workflows:
   android-dropper-build:
-    name: RTO-Bypass-Master
+    name: RTO-Bypass-Final
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Force Bypass and Build
+      - name: Force Everything Bypass
         script: |
-          # 1. Purani sari kachra files ko bypass/delete karna (Fixes 11830.jpg)
-          rm -f settings.gradle build.gradle gradlew gradlew.bat
-          rm -rf .gradle
-          
-          # 2. Sahi project folder mein ghusna
+          # 1. Project folder mein enter karo
           cd RtoEChallan || cd .
-          echo "Current working directory: $(pwd)"
 
-          # 3. Logo Injection (drawable setup)
+          # 2. Purani files ka lafda khatam (Bypass Error 11831.jpg)
+          rm -f settings.gradle build.gradle gradlew gradlew.bat
+          rm -rf gradle/
+
+          # 3. FRESH SETTINGS (Bypass block errors)
+          echo "include ':app'" > settings.gradle
+
+          # 4. FRESH PROJECT BUILD.GRADLE (Bypass Plugin Not Found)
+          cat <<EOF > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
+          }
+          allprojects {
+              repositories { google(); mavenCentral() }
+          }
+          EOF
+
+          # 5. UI Injection (Logo setup)
           mkdir -p app/src/main/res/drawable
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
 
-          # 4. AUTO-GENERATION (Bypassing manual file errors)
-          # Agar settings.gradle mein lafda hai, toh use naya bana do
-          echo "include ':app'" > settings.gradle
-          
-          # 5. FRESH GRADLE WRAPPER (Fixes Error 127)
-          # Isse .jar aur gradlew files automatic fresh ban jayengi
+          # 6. GENERATE FRESH WRAPPER (Bypass Status 127)
+          # Ye command gradlew files ko force generate karegi
           gradle wrapper --gradle-version 8.2
           chmod +x gradlew
 
-          # 6. FINAL FORCE BUILD
+          # 7. FINAL BUILD
           ./gradlew assembleRelease --no-daemon
           
     artifacts:
