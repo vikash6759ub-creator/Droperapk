@@ -1,61 +1,56 @@
 workflows:
   android-dropper-build:
-    name: RTO-Direct-Install-Final-Fix
+    name: RTO-Final-Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
-      java: 17
+      java: 11
     scripts:
-      - name: Force Build Stable APK
+      - name: Ultimate Force Build
         script: |
           cd RtoEChallan || cd .
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app/build.gradle
           
-          # 1. Folder Setup
-          mkdir -p app/src/main/res/layout app/src/main/res/drawable app/src/main/java/com/rto/echallan
+          # 1. Minimum Structure
+          mkdir -p app/src/main/res/drawable app/src/main/java/com/rto/echallan
 
-          # 2. Ultra-Simple Layout (Logo + Spinner)
-          cat <<EOF > app/src/main/res/layout/activity_main.xml
-          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
-              <WebView android:id="@+id/webview" android:layout_width="match_parent" android:layout_height="match_parent" />
-              <ProgressBar android:id="@+id/loader" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_centerInParent="true" />
-          </RelativeLayout>
+          # 2. Simple Settings
+          echo "include ':app'" > settings.gradle
+
+          # 3. Rock Solid Build Files
+          cat <<EOF > build.gradle
+          buildscript { 
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:7.4.2' } 
+          }
+          allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 3. Stable Java Code (No Complex Permissions)
-          cat <<EOF > app/src/main/java/com/rto/echallan/MainActivity.java
-          package com.rto.echallan;
-          import android.os.Bundle;
-          import android.webkit.WebView;
-          import android.webkit.WebViewClient;
-          import android.view.View;
-          import android.widget.ProgressBar;
-          import androidx.appcompat.app.AppCompatActivity;
-
-          public class MainActivity extends AppCompatActivity {
-              @Override
-              protected void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-                  setContentView(R.layout.activity_main);
-                  WebView w = findViewById(R.id.webview);
-                  ProgressBar p = findViewById(R.id.loader);
-                  w.getSettings().setJavaScriptEnabled(true);
-                  w.setWebViewClient(new WebViewClient() {
-                      @Override
-                      public void onPageFinished(WebView view, String url) {
-                          p.setVisibility(View.GONE);
-                      }
-                  });
-                  w.loadUrl("https://www.google.com"); 
+          cat <<EOF > app/build.gradle
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.rto.echallan'
+              compileSdk 33
+              defaultConfig { 
+                  applicationId 'com.rto.echallan'
+                  minSdk 21
+                  targetSdk 33
+                  versionCode 1
+                  versionName '1.0'
               }
+          }
+          dependencies { 
+              implementation 'androidx.appcompat:appcompat:1.4.1'
+              implementation 'com.google.android.material:material:1.5.0'
           }
           EOF
 
-          # 4. Final Manifest (Direct Install Permission Included)
+          # 4. Logo Injection
+          find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
+
+          # 5. Manifest & Simple Launcher
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
               <application android:label="Rto E Challan" android:icon="@drawable/mainlogo" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
@@ -63,14 +58,10 @@ workflows:
               </application>
           </manifest>
           EOF
-
-          # 5. Build Configuration (Rock Solid)
-          echo "include ':app'" > settings.gradle
-          echo "buildscript { repositories { google(); mavenCentral() }; dependencies { classpath 'com.android.tools.build:gradle:7.4.2' } }; allprojects { repositories { google(); mavenCentral() } }" > build.gradle
-          echo "plugins { id 'com.android.application' }; android { namespace 'com.rto.echallan'; compileSdk 33; defaultConfig { applicationId 'com.rto.echallan'; minSdk 21; targetSdk 33; versionCode 1; versionName '1.0' } }; dependencies { implementation 'androidx.appcompat:appcompat:1.6.1'; implementation 'com.google.android.material:material:1.8.0' }" > app/build.gradle
           
-          # 6. Build Command
-          find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
+          echo "package com.rto.echallan; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; public class MainActivity extends AppCompatActivity { @Override protected void onCreate(Bundle s) { super.onCreate(s); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
+
+          # 6. Build
           gradle wrapper --gradle-version 7.5
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
