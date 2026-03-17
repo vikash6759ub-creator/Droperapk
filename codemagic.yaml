@@ -1,21 +1,25 @@
 workflows:
   android-dropper-build:
-    name: RTO-Bhai-Final-Success
+    name: RTO-AndroidX-Fix
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 11
     scripts:
-      - name: Ultimate Clean Build
+      - name: Ultimate Clean Build with AndroidX
         script: |
-          # 1. Sab kuch saaf karo
           cd RtoEChallan || cd .
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app
           
-          # 2. Fresh Folder Structure
           mkdir -p app/src/main/res/layout app/src/main/res/drawable app/src/main/java/com/rto/echallan
 
-          # 3. Simple Build Files (No complex dependencies)
+          # 1. THE MISSING FIX (AndroidX Enable)
+          cat <<EOF > gradle.properties
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
+
+          # 2. Settings & Build Files
           echo "include ':app'" > settings.gradle
           cat <<EOF > build.gradle
           buildscript {
@@ -42,33 +46,25 @@ workflows:
           }
           EOF
 
-          # 4. Ultra-Simple Layout (Sirf Logo dikhega)
+          # 3. Simple Layout & Manifest
           cat <<EOF > app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent">
-              <ImageView
-                  android:layout_width="200dp"
-                  android:layout_height="200dp"
-                  android:layout_centerInParent="true"
-                  android:src="@drawable/mainlogo" />
+          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
+              <ImageView android:layout_width="200dp" android:layout_height="200dp" android:layout_centerInParent="true" android:src="@drawable/mainlogo" />
           </RelativeLayout>
           EOF
 
-          # 5. Manifest & Java (Basic Launcher)
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rto.echallan">
               <application android:label="Rto E Challan" android:icon="@drawable/mainlogo" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
-                  </activity>
+                  <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity>
               </application>
           </manifest>
           EOF
+
           echo "package com.rto.echallan; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; public class MainActivity extends AppCompatActivity { @Override protected void onCreate(Bundle s) { super.onCreate(s); setContentView(R.layout.activity_main); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
 
-          # 6. Logo Injection & Build
+          # 4. Logo Injection & Build
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           gradle wrapper --gradle-version 6.7.1
           chmod +x gradlew
