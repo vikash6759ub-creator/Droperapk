@@ -1,6 +1,6 @@
 workflows:
   android-dropper-build:
-    name: Dropper PlayStore Design Final
+    name: Dropper Final PlayStore Success
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
@@ -8,10 +8,12 @@ workflows:
     scripts:
       - name: Master Automatic Repair
         script: |
-          cd RtoEChallan
+          # 1. Root Directory Setup
+          cd RtoEChallan || exit 1
           
-          # 1. Base Config Reset
-          rm -f build.gradle settings.gradle gradle.properties
+          # 2. Complete Config Reset (Fixing 11782.jpg error)
+          rm -rf build.gradle settings.gradle gradle.properties
+          
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
@@ -19,7 +21,9 @@ workflows:
           EOF
 
           cat <<EOF > settings.gradle
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          pluginManagement { 
+              repositories { google(); mavenCentral(); gradlePluginPortal() } 
+          }
           dependencyResolutionManagement { 
               repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
               repositories { google(); mavenCentral(); maven { url "https://jitpack.io" } } 
@@ -28,15 +32,28 @@ workflows:
           include ':app'
           EOF
 
-          # 2. LOGO SYNC (Aapke upload kiye logo ko connect karna)
+          cat <<EOF > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { 
+                  classpath 'com.android.tools.build:gradle:8.0.2'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.20'
+              }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
+
+          # 3. LOGO CONNECTION (Connecting your uploaded logo)
           mkdir -p app/src/main/res/drawable
-          # Agar logo file drawable mein nahi hai toh ye command error nahi degi
-          
-          # 3. XML CLEANING (Resource error bypass)
-          # 'google_play_text_logo' ko ab error nahi dena chahiye kyunki aap ise upload kar rahe ho
+          # Agar aapne logo upload kiya hai toh ye use link karega, warna default banayega
+          if [ ! -f "app/src/main/res/drawable/google_play_text_logo.png" ]; then
+            cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/drawable/google_play_text_logo.png || true
+          fi
+
+          # 4. XML FIX (Cleaning 11771/11778 Resource Errors)
           find app/src/main/res/layout -name "*.xml" -type f -exec sed -i '' 's/@drawable\/btn/@android:drawable\/btn_default/g' {} +
 
-          # 4. MAIN ACTIVITY DESIGN LINK (Real Page)
+          # 5. MAIN ACTIVITY (Linking Real Page)
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -45,22 +62,19 @@ workflows:
           class MainActivity : AppCompatActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  // Seedha 'activity_main' load hoga jo Play Store jaisa dikhta hai
                   try {
                       setContentView(R.layout.activity_main)
                   } catch (e: Exception) {
-                      // Agar layout mein error hua toh base load karega crash nahi hoga
                       setContentView(android.R.layout.select_dialog_item)
                   }
               }
           }
           EOF
 
-          # 5. Build and Auto-Sign
+          # 6. GRADLE WRAPPER & BUILD FIX
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
-          keytool -genkey -v -keystore final.keystore -alias final_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
-
+          
           ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/final.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
