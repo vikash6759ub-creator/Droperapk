@@ -1,6 +1,6 @@
 workflows:
   android-dropper-build:
-    name: RTO-Force-Final
+    name: RTO-Final-Fix-Stable
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -8,11 +8,10 @@ workflows:
     scripts:
       - name: Force Everything
         script: |
-          # 1. Purani sab kachra files delete (Bypass Mode)
           cd RtoEChallan || cd .
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app/build.gradle
           
-          # 2. Fresh Repo Setup (Plugin error fix)
+          # 1. Stable Settings
           cat <<EOF > settings.gradle
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { 
@@ -22,42 +21,36 @@ workflows:
           include ':app'
           EOF
 
-          # 3. Project-Level Build File
+          # 2. Stable Project Build File
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.2.0'; classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0' }
+              dependencies { classpath 'com.android.tools.build:gradle:8.1.1'; classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.10' }
           }
           EOF
 
-          # 4. App-Level Build File (Direct APK Logic)
+          # 3. Conflict-Free App Build File
           mkdir -p app
           cat <<EOF > app/build.gradle
           plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
           android {
               namespace 'com.rto.echallan'
-              compileSdk 34
-              defaultConfig { applicationId "com.rto.echallan"; minSdk 24; targetSdk 34; versionCode 1; versionName "1.0" }
+              compileSdk 33
+              defaultConfig { applicationId "com.rto.echallan"; minSdk 24; targetSdk 33; versionCode 1; versionName "1.0" }
               buildTypes { release { minifyEnabled false } }
               compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
               kotlinOptions { jvmTarget = '17' }
           }
           dependencies {
-              implementation 'androidx.core:core-ktx:1.12.0'
               implementation 'androidx.appcompat:appcompat:1.6.1'
-              implementation 'com.google.android.material:material:1.11.0'
+              implementation 'com.google.android.material:material:1.9.0'
+              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
           }
           EOF
 
-          # 5. Logo Injection (Force)
-          mkdir -p app/src/main/res/drawable
-          find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
-
-          # 6. Fresh Gradlew Generation (Status 127 Fix)
-          gradle wrapper --gradle-version 8.2
+          # 4. Final Setup & Build
+          gradle wrapper --gradle-version 8.1.1
           chmod +x gradlew
-          
-          # 7. Final Command
           ./gradlew assembleRelease --no-daemon
           
     artifacts:
