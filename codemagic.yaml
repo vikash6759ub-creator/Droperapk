@@ -1,22 +1,22 @@
 workflows:
   android-dropper-build:
-    name: RTO-Bhai-Final-Fix
+    name: RTO-Bhai-Final-Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 11
     scripts:
-      - name: Ultimate Build No Dependencies
+      - name: Ultimate Clean Build
         script: |
+          # 1. Sab kuch saaf karo
           cd RtoEChallan || cd .
-          rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app/build.gradle
+          rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app
           
-          mkdir -p app/src/main/res/drawable app/src/main/java/com/rto/echallan
+          # 2. Fresh Folder Structure
+          mkdir -p app/src/main/res/layout app/src/main/res/drawable app/src/main/java/com/rto/echallan
 
-          # 1. Base Settings
+          # 3. Simple Build Files (No complex dependencies)
           echo "include ':app'" > settings.gradle
-
-          # 2. Basic Build Script (Version 4.2.2 is most stable for direct builds)
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -25,12 +25,10 @@ workflows:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 3. App Script (Zero Conflicts)
           cat <<EOF > app/build.gradle
           apply plugin: 'com.android.application'
           android {
               compileSdkVersion 30
-              buildToolsVersion "30.0.3"
               defaultConfig {
                   applicationId "com.rto.echallan"
                   minSdkVersion 21
@@ -38,28 +36,39 @@ workflows:
                   versionCode 1
                   versionName "1.0"
               }
-              buildTypes { release { minifyEnabled false } }
           }
           dependencies {
-              implementation fileTree(dir: 'libs', include: ['*.jar'])
+              implementation 'androidx.appcompat:appcompat:1.2.0'
           }
           EOF
 
-          # 4. Manifest (Only Core)
+          # 4. Ultra-Simple Layout (Sirf Logo dikhega)
+          cat <<EOF > app/src/main/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+              <ImageView
+                  android:layout_width="200dp"
+                  android:layout_height="200dp"
+                  android:layout_centerInParent="true"
+                  android:src="@drawable/mainlogo" />
+          </RelativeLayout>
+          EOF
+
+          # 5. Manifest & Java (Basic Launcher)
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rto.echallan">
-              <application android:label="Rto E Challan" android:icon="@drawable/mainlogo">
+              <application android:label="Rto E Challan" android:icon="@drawable/mainlogo" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
                   </activity>
               </application>
           </manifest>
           EOF
+          echo "package com.rto.echallan; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; public class MainActivity extends AppCompatActivity { @Override protected void onCreate(Bundle s) { super.onCreate(s); setContentView(R.layout.activity_main); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
 
-          # 5. Core Java
-          echo "package com.rto.echallan; import android.app.Activity; import android.os.Bundle; public class MainActivity extends Activity { @Override protected void onCreate(Bundle s) { super.onCreate(s); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
-
-          # 6. Logo & Build
+          # 6. Logo Injection & Build
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           gradle wrapper --gradle-version 6.7.1
           chmod +x gradlew
