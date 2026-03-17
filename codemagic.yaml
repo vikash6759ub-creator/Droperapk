@@ -1,22 +1,32 @@
 workflows:
   android-dropper-build:
-    name: RTO Final Success Master
+    name: RTO Auto-Pilot Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Master Project Fix
+      - name: Automatic Project Fix & Build
         script: |
-          # 1. Direct Project Entry (No Searching)
-          # Hum direct folder ke andar ja rahe hain jahan build.gradle hai
-          cd RtoEChallan || cd app || echo "Already at root"
-
-          # 2. UI & Logo Injection (mainlogo.png)
-          mkdir -p app/src/main/res/drawable
-          find . -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
+          # 1. AUTO-LOCATE: Pure repo mein settings.gradle dhoondna
+          echo "Finding project root..."
+          SETTINGS_FILE=$(find . -name "settings.gradle" | head -n 1)
           
-          # Progress Bar & Logo Layout Setup
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: Bhai, settings.gradle nahi mili! Repo check karo."
+            exit 1
+          fi
+          
+          PROJECT_ROOT=$(dirname "$SETTINGS_FILE")
+          cd "$PROJECT_ROOT"
+          echo "Building from: $(pwd)"
+
+          # 2. AUTO-UI: Logo aur Progress Bar inject karna
+          mkdir -p app/src/main/res/drawable
+          # mainlogo.png ko dhoond kar drawable mein copy karna
+          find ../ -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
+          
+          # Layout XML ko automatic rewrite karna
           LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
           if [ -n "$LAYOUT_FILE" ]; then
           cat <<EOF > "$LAYOUT_FILE"
@@ -30,24 +40,20 @@ workflows:
                   android:layout_centerInParent="true" android:indeterminateTint="#2196F3" />
               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                   android:layout_below="@id/logo" android:layout_centerHorizontal="true"
-                  android:layout_marginTop="25dp" android:text="Syncing RTO Database..."
+                  android:layout_marginTop="25dp" android:text="Syncing Official RTO Data..."
                   android:textColor="#000000" android:textStyle="bold" />
           </RelativeLayout>
           EOF
           fi
 
-          # 3. Permissions Force Fix
-          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
-          sed -i '' '/<application/i \
-          <uses-permission android:name="android.permission.INTERNET" /> \
-          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
-          <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
-
-          # 4. Force Gradle Build
+          # 3. AUTO-WRAPPER: Agar gradlew nahi hai toh naya banana (Fixes 11817.jpg)
           if [ ! -f "gradlew" ]; then
+            echo "Generating Gradle Wrapper automatically..."
             gradle wrapper --gradle-version 8.0.2
           fi
           chmod +x gradlew
+          
+          # 4. AUTO-BUILD: Final APK generate karna
           ./gradlew assembleRelease --no-daemon
           
     artifacts:
