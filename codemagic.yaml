@@ -1,37 +1,26 @@
 workflows:
   android-dropper-build:
-    name: RTO-Logo-Fix-Build
+    name: RTO-Final-Green-Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 11
     scripts:
-      - name: Auto-Find Logo and Build
+      - name: Build Without Image Error
         script: |
           cd RtoEChallan || cd .
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app
-          mkdir -p app/src/main/res/drawable app/src/main/java/com/rto/echallan
+          
+          # 1. Folder Structure
+          mkdir -p app/src/main/res/layout app/src/main/res/values app/src/main/java/com/rto/echallan
 
-          # 1. LOGO FINDER (Dhundhne ka logic)
-          # Poore repo mein mainlogo.png ko dhundho
-          LOGO_PATH=$(find $CM_BUILD_DIR -iname "mainlogo.png" | head -n 1)
-
-          if [ -z "$LOGO_PATH" ]; then
-            echo "Logo nahi mila, dummy logo bana raha hoon build bachane ke liye"
-            # Ek khali file bana dega taaki error na aaye
-            touch app/src/main/res/drawable/mainlogo.png 
-          else
-            echo "Logo mil gaya: $LOGO_PATH"
-            cp "$LOGO_PATH" app/src/main/res/drawable/mainlogo.png
-          fi
-
-          # 2. AndroidX Fix (Jo 11847.jpg mein tha)
+          # 2. AndroidX Fix (Jo 11847.jpg mein error tha)
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
 
-          # 3. Fresh Config (Simple & Fast)
+          # 3. Fast Config
           echo "include ':app'" > settings.gradle
           cat <<EOF > build.gradle
           buildscript {
@@ -56,17 +45,21 @@ workflows:
           dependencies { implementation 'androidx.appcompat:appcompat:1.2.0' }
           EOF
 
-          # 4. Manifest & Java
+          # 4. Manifest (Using Default Icon to avoid 11850.jpg error)
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rto.echallan">
-              <application android:label="Rto E Challan" android:icon="@drawable/mainlogo" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-                  <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity>
+              <application android:label="Rto E Challan" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+                  </activity>
               </application>
           </manifest>
           EOF
+
+          # 5. Core Java
           echo "package com.rto.echallan; import android.app.Activity; import android.os.Bundle; public class MainActivity extends Activity { @Override protected void onCreate(Bundle s) { super.onCreate(s); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
 
-          # 5. Build Start
+          # 6. Build Command
           gradle wrapper --gradle-version 6.7.1
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
