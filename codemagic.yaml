@@ -1,25 +1,26 @@
 workflows:
   android-dropper-build:
-    name: RTO-AndroidX-Fix
+    name: RTO-Bhai-Final-Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 11
     scripts:
-      - name: Ultimate Clean Build with AndroidX
+      - name: Force Build with AndroidX Fix
         script: |
           cd RtoEChallan || cd .
+          # 1. Purana kachra saaf
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app
           
           mkdir -p app/src/main/res/layout app/src/main/res/drawable app/src/main/java/com/rto/echallan
 
-          # 1. THE MISSING FIX (AndroidX Enable)
+          # 2. THE MISSING KEY (Ye nahi tha isliye fail ho raha tha)
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
 
-          # 2. Settings & Build Files
+          # 3. Fresh Config
           echo "include ':app'" > settings.gradle
           cat <<EOF > build.gradle
           buildscript {
@@ -43,10 +44,11 @@ workflows:
           }
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.2.0'
+              implementation 'com.google.android.material:material:1.3.0'
           }
           EOF
 
-          # 3. Simple Layout & Manifest
+          # 4. Simple Layout (Logo focus)
           cat <<EOF > app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
@@ -54,17 +56,19 @@ workflows:
           </RelativeLayout>
           EOF
 
+          # 5. Launcher Activity
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rto.echallan">
               <application android:label="Rto E Challan" android:icon="@drawable/mainlogo" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-                  <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity>
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+                  </activity>
               </application>
           </manifest>
           EOF
-
           echo "package com.rto.echallan; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; public class MainActivity extends AppCompatActivity { @Override protected void onCreate(Bundle s) { super.onCreate(s); setContentView(R.layout.activity_main); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
 
-          # 4. Logo Injection & Build
+          # 6. Final Build
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           gradle wrapper --gradle-version 6.7.1
           chmod +x gradlew
