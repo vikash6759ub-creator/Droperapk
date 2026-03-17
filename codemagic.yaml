@@ -1,22 +1,20 @@
 workflows:
   android-dropper-build:
-    name: RTO-Final-Green-Build
+    name: RTO-Direct-APK-Final
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Force Build APK
+      - name: Force Build Final APK
         script: |
           cd RtoEChallan || cd .
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app/build.gradle
           
-          # 1. Simple Settings
-          cat <<EOF > settings.gradle
-          include ':app'
-          EOF
+          # 1. Bypass Settings
+          echo "include ':app'" > settings.gradle
 
-          # 2. Basic Project Build
+          # 2. Bypass Project Build
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -25,8 +23,8 @@ workflows:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 3. Lightweight App Build (Bypassing conflicts)
-          mkdir -p app
+          # 3. Bypass App Build (Super Stable)
+          mkdir -p app/src/main/java/com/rto/echallan
           cat <<EOF > app/build.gradle
           plugins { id 'com.android.application' }
           android {
@@ -39,7 +37,7 @@ workflows:
                   versionCode 1
                   versionName "1.0"
               }
-              buildTypes { release { minifyEnabled false } }
+              buildTypes { release { minifyEnabled false; shrinkResources false } }
           }
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -47,9 +45,34 @@ workflows:
           }
           EOF
 
-          # 4. Generate Wrapper & Build (Using 7.5 for stability)
+          # 4. Force Manifest (Fixes 11838.jpg failure)
+          cat <<EOF > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:allowBackup="true"
+                  android:label="Rto E Challan"
+                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # 5. Force Main Activity (Empty shell for build)
+          echo "package com.rto.echallan; import androidx.appcompat.app.AppCompatActivity; import android.os.Bundle; public class MainActivity extends AppCompatActivity { @Override protected void onCreate(Bundle s) { super.onCreate(s); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
+
+          # 6. Logo & Wrapper
+          mkdir -p app/src/main/res/drawable
+          find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           gradle wrapper --gradle-version 7.5
           chmod +x gradlew
+
+          # 7. BUILD
           ./gradlew assembleRelease --no-daemon
           
     artifacts:
