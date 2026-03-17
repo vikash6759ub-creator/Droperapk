@@ -1,12 +1,12 @@
 workflows:
   android-dropper-build:
-    name: RTO PlayStore Final Delivery
+    name: RTO PlayStore Final Artifact Fix
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Master Automatic Repair & URL Inject
+      - name: Master Automatic Repair & Artifact Force
         script: |
           cd RtoEChallan || exit 1
           
@@ -19,7 +19,7 @@ workflows:
             cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/drawable/google_play_text_logo.png
           fi
 
-          # 2. Redirect Logic with GitHub Link
+          # 2. Redirect Logic (GitHub URL)
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -50,20 +50,11 @@ workflows:
           }
           EOF
 
-          # 3. Build Config & Compilation
+          # 3. Build Configuration
           rm -f build.gradle settings.gradle gradle.properties
           echo "android.useAndroidX=true\nandroid.enableJetifier=true\norg.gradle.jvmargs=-Xmx2048m" > gradle.properties
+          echo "rootProject.name = 'RtoEChallan'\ninclude ':app'" > settings.gradle
           
-          cat <<EOF > settings.gradle
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-          dependencyResolutionManagement { 
-              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-              repositories { google(); mavenCentral() } 
-          }
-          rootProject.name = 'RtoEChallan'
-          include ':app'
-          EOF
-
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -75,6 +66,7 @@ workflows:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
+          # 4. Build and Force Move APK
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
           ./gradlew assembleRelease \
@@ -83,6 +75,11 @@ workflows:
             -Pandroid.injected.signing.key.alias=final_alias \
             -Pandroid.injected.signing.key.password=pass123 \
             --no-daemon
+
+          # YEH COMMAND APK KO DHUUND KAR BAHAR LAYEGI
+          mkdir -p ../outputs
+          find . -name "*.apk" -exec cp {} ../outputs/ \;
           
     artifacts:
+      - ../outputs/*.apk
       - "**/build/outputs/apk/**/*.apk"
