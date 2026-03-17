@@ -1,33 +1,30 @@
 workflows:
   android-dropper-build:
-    name: RTO Ultimate Success Master
+    name: RTO Final Master Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Inject UI and Force Master Build
+      - name: Master Project Fix
         script: |
-          # 1. Project Root Locator (Fixes 11813.jpg)
-          echo "Scanning for gradlew file..."
-          # Poori repository mein gradlew ko dhoondna
-          GRADLE_PATH=$(find . -name "gradlew" | head -n 1)
-          
-          if [ -z "$GRADLE_PATH" ]; then
-            echo "Gradlew nahi mila, generating new wrapper..."
-            gradle wrapper --gradle-version 8.0.2
-            GRADLE_PATH="./gradlew"
+          # 1. Project Root Locator
+          # Ye command poore repo mein settings.gradle dhoond kar wahan chali jayegi
+          SETTINGS_FILE=$(find . -name "settings.gradle" | head -n 1)
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: Project files nahi mili! Repository check karo."
+            exit 1
           fi
-          
-          ROOT_DIR=$(dirname "$GRADLE_PATH")
-          cd "$ROOT_DIR"
-          echo "Building from: $(pwd)"
+          PROJECT_ROOT=$(dirname "$SETTINGS_FILE")
+          cd "$PROJECT_ROOT"
+          echo "Building from confirmed root: $(pwd)"
 
-          # 2. UI & Logo Injection (mainlogo.png)
+          # 2. UI & Logo Injection
+          # mainlogo.png ko dhoond kar drawable mein dalna
           mkdir -p app/src/main/res/drawable
           find ../ -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           
-          # UI Layout: Round Progress Bar + Logo
+          # Layout Update: Round Progress Bar + Logo
           LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
           if [ -n "$LAYOUT_FILE" ]; then
           cat <<EOF > "$LAYOUT_FILE"
@@ -41,20 +38,17 @@ workflows:
                   android:layout_centerInParent="true" android:indeterminateTint="#2196F3" />
               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                   android:layout_below="@id/logo" android:layout_centerHorizontal="true"
-                  android:layout_marginTop="25dp" android:text="Official RTO Data Syncing..."
+                  android:layout_marginTop="25dp" android:text="Syncing RTO Database..."
                   android:textColor="#000000" android:textStyle="bold" />
           </RelativeLayout>
           EOF
           fi
 
-          # 3. Permissions Injection (Fixes 11798.jpg)
-          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
-          sed -i '' '/<application/i \
-          <uses-permission android:name="android.permission.INTERNET" /> \
-          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
-          <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
-
-          # 4. Final Force Build
+          # 3. Final Build Force
+          # Agar gradlew nahi hai toh create karo
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper --gradle-version 8.0.2
+          fi
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
           
