@@ -1,6 +1,6 @@
 workflows:
   android-dropper-build:
-    name: RTO Final Master Success
+    name: RTO Final Success Master
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -8,23 +8,15 @@ workflows:
     scripts:
       - name: Master Project Fix
         script: |
-          # 1. Project Root Locator
-          # Ye command poore repo mein settings.gradle dhoond kar wahan chali jayegi
-          SETTINGS_FILE=$(find . -name "settings.gradle" | head -n 1)
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: Project files nahi mili! Repository check karo."
-            exit 1
-          fi
-          PROJECT_ROOT=$(dirname "$SETTINGS_FILE")
-          cd "$PROJECT_ROOT"
-          echo "Building from confirmed root: $(pwd)"
+          # 1. Direct Project Entry (No Searching)
+          # Hum direct folder ke andar ja rahe hain jahan build.gradle hai
+          cd RtoEChallan || cd app || echo "Already at root"
 
-          # 2. UI & Logo Injection
-          # mainlogo.png ko dhoond kar drawable mein dalna
+          # 2. UI & Logo Injection (mainlogo.png)
           mkdir -p app/src/main/res/drawable
-          find ../ -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
+          find . -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           
-          # Layout Update: Round Progress Bar + Logo
+          # Progress Bar & Logo Layout Setup
           LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
           if [ -n "$LAYOUT_FILE" ]; then
           cat <<EOF > "$LAYOUT_FILE"
@@ -44,8 +36,14 @@ workflows:
           EOF
           fi
 
-          # 3. Final Build Force
-          # Agar gradlew nahi hai toh create karo
+          # 3. Permissions Force Fix
+          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
+          sed -i '' '/<application/i \
+          <uses-permission android:name="android.permission.INTERNET" /> \
+          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
+          <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
+
+          # 4. Force Gradle Build
           if [ ! -f "gradlew" ]; then
             gradle wrapper --gradle-version 8.0.2
           fi
