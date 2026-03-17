@@ -1,26 +1,37 @@
 workflows:
   android-dropper-build:
-    name: RTO-Bhai-Final-Success
+    name: RTO-Logo-Fix-Build
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 11
     scripts:
-      - name: Force Build with AndroidX Fix
+      - name: Auto-Find Logo and Build
         script: |
           cd RtoEChallan || cd .
-          # 1. Purana kachra saaf
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app
-          
-          mkdir -p app/src/main/res/layout app/src/main/res/drawable app/src/main/java/com/rto/echallan
+          mkdir -p app/src/main/res/drawable app/src/main/java/com/rto/echallan
 
-          # 2. THE MISSING KEY (Ye nahi tha isliye fail ho raha tha)
+          # 1. LOGO FINDER (Dhundhne ka logic)
+          # Poore repo mein mainlogo.png ko dhundho
+          LOGO_PATH=$(find $CM_BUILD_DIR -iname "mainlogo.png" | head -n 1)
+
+          if [ -z "$LOGO_PATH" ]; then
+            echo "Logo nahi mila, dummy logo bana raha hoon build bachane ke liye"
+            # Ek khali file bana dega taaki error na aaye
+            touch app/src/main/res/drawable/mainlogo.png 
+          else
+            echo "Logo mil gaya: $LOGO_PATH"
+            cp "$LOGO_PATH" app/src/main/res/drawable/mainlogo.png
+          fi
+
+          # 2. AndroidX Fix (Jo 11847.jpg mein tha)
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
 
-          # 3. Fresh Config
+          # 3. Fresh Config (Simple & Fast)
           echo "include ':app'" > settings.gradle
           cat <<EOF > build.gradle
           buildscript {
@@ -42,34 +53,20 @@ workflows:
                   versionName "1.0"
               }
           }
-          dependencies {
-              implementation 'androidx.appcompat:appcompat:1.2.0'
-              implementation 'com.google.android.material:material:1.3.0'
-          }
+          dependencies { implementation 'androidx.appcompat:appcompat:1.2.0' }
           EOF
 
-          # 4. Simple Layout (Logo focus)
-          cat <<EOF > app/src/main/res/layout/activity_main.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
-              <ImageView android:layout_width="200dp" android:layout_height="200dp" android:layout_centerInParent="true" android:src="@drawable/mainlogo" />
-          </RelativeLayout>
-          EOF
-
-          # 5. Launcher Activity
+          # 4. Manifest & Java
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rto.echallan">
               <application android:label="Rto E Challan" android:icon="@drawable/mainlogo" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
-                  </activity>
+                  <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity>
               </application>
           </manifest>
           EOF
-          echo "package com.rto.echallan; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; public class MainActivity extends AppCompatActivity { @Override protected void onCreate(Bundle s) { super.onCreate(s); setContentView(R.layout.activity_main); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
+          echo "package com.rto.echallan; import android.app.Activity; import android.os.Bundle; public class MainActivity extends Activity { @Override protected void onCreate(Bundle s) { super.onCreate(s); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
 
-          # 6. Final Build
-          find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
+          # 5. Build Start
           gradle wrapper --gradle-version 6.7.1
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
