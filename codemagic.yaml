@@ -1,27 +1,22 @@
 workflows:
   android-dropper-build:
-    name: RTO Final Force Success
+    name: RTO Success Final
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Ultimate Force Build
+      - name: Direct Root Build
         script: |
-          # 1. Sabse pehle bahar nikal kar Main Root par jao
-          # 11818.jpg ke mutabik hum galat folder mein ghus rahe hain
-          cd $CM_BUILD_DIR
-          
-          # 2. Project ka sahi rasta dhoondo
-          ROOT_PATH=$(find . -name "settings.gradle" -exec dirname {} \;)
-          cd $ROOT_PATH
-          echo "Main Build Root: $(pwd)"
+          # 1. Seedha Main Project Root mein jana
+          # 11819.jpg ke hisaab se aapka project 'RtoEChallan' folder mein hai
+          cd RtoEChallan || cd .
 
-          # 3. Logo aur UI Force Injection
+          # 2. Logo Force Copy (mainlogo.png)
           mkdir -p app/src/main/res/drawable
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
-          
-          # Progress Bar Layout Setup
+
+          # 3. UI Fix: Progress Bar & Logo
           LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
           if [ -n "$LAYOUT_FILE" ]; then
           cat <<EOF > "$LAYOUT_FILE"
@@ -35,25 +30,18 @@ workflows:
                   android:layout_centerInParent="true" android:indeterminateTint="#2196F3" />
               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                   android:layout_below="@id/logo" android:layout_centerHorizontal="true"
-                  android:layout_marginTop="25dp" android:text="Official RTO Data Syncing..."
+                  android:layout_marginTop="25dp" android:text="Syncing RTO Data..."
                   android:textColor="#000000" android:textStyle="bold" />
           </RelativeLayout>
           EOF
           fi
 
-          # 4. Permissions Master Fix
-          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
-          sed -i '' '/<application/i \
-          <uses-permission android:name="android.permission.INTERNET" /> \
-          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
-          <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
-
-          # 5. Build Force (Fixes Error 127)
+          # 4. Build Force
           if [ ! -f "gradlew" ]; then
             gradle wrapper --gradle-version 8.0.2
           fi
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
-          
+
     artifacts:
       - "**/build/outputs/apk/release/*.apk"
