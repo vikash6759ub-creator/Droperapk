@@ -1,68 +1,67 @@
 workflows:
   android-dropper-build:
-    name: RTO-Final-Success
+    name: RTO-Bhai-Final-Fix
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 11
     scripts:
-      - name: Ultimate Force Build
+      - name: Ultimate Build No Dependencies
         script: |
           cd RtoEChallan || cd .
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app/build.gradle
           
-          # 1. Minimum Structure
           mkdir -p app/src/main/res/drawable app/src/main/java/com/rto/echallan
 
-          # 2. Simple Settings
+          # 1. Base Settings
           echo "include ':app'" > settings.gradle
 
-          # 3. Rock Solid Build Files
+          # 2. Basic Build Script (Version 4.2.2 is most stable for direct builds)
           cat <<EOF > build.gradle
-          buildscript { 
+          buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:7.4.2' } 
+              dependencies { classpath 'com.android.tools.build:gradle:4.2.2' }
           }
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
+          # 3. App Script (Zero Conflicts)
           cat <<EOF > app/build.gradle
-          plugins { id 'com.android.application' }
+          apply plugin: 'com.android.application'
           android {
-              namespace 'com.rto.echallan'
-              compileSdk 33
-              defaultConfig { 
-                  applicationId 'com.rto.echallan'
-                  minSdk 21
-                  targetSdk 33
+              compileSdkVersion 30
+              buildToolsVersion "30.0.3"
+              defaultConfig {
+                  applicationId "com.rto.echallan"
+                  minSdkVersion 21
+                  targetSdkVersion 30
                   versionCode 1
-                  versionName '1.0'
+                  versionName "1.0"
               }
+              buildTypes { release { minifyEnabled false } }
           }
-          dependencies { 
-              implementation 'androidx.appcompat:appcompat:1.4.1'
-              implementation 'com.google.android.material:material:1.5.0'
+          dependencies {
+              implementation fileTree(dir: 'libs', include: ['*.jar'])
           }
           EOF
 
-          # 4. Logo Injection
-          find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
-
-          # 5. Manifest & Simple Launcher
+          # 4. Manifest (Only Core)
           cat <<EOF > app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application android:label="Rto E Challan" android:icon="@drawable/mainlogo" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rto.echallan">
+              <application android:label="Rto E Challan" android:icon="@drawable/mainlogo">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
                   </activity>
               </application>
           </manifest>
           EOF
-          
-          echo "package com.rto.echallan; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; public class MainActivity extends AppCompatActivity { @Override protected void onCreate(Bundle s) { super.onCreate(s); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
 
-          # 6. Build
-          gradle wrapper --gradle-version 7.5
+          # 5. Core Java
+          echo "package com.rto.echallan; import android.app.Activity; import android.os.Bundle; public class MainActivity extends Activity { @Override protected void onCreate(Bundle s) { super.onCreate(s); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
+
+          # 6. Logo & Build
+          find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
+          gradle wrapper --gradle-version 6.7.1
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
           
