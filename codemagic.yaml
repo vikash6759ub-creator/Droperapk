@@ -1,27 +1,30 @@
 workflows:
   android-dropper-build:
-    name: RTO Ultimate Production Success
+    name: RTO Final Success Master
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Inject UI and Master Build
+      - name: Force Root Build Success
         script: |
-          # 1. Asli Root Locator (Fixes 11811.jpg)
-          # Hum settings.gradle dhoond rahe hain jo asli project ka center hai
-          SETTINGS_PATH=$(find . -name "settings.gradle" | head -n 1)
-          PROJECT_ROOT=$(dirname "$SETTINGS_PATH")
-          cd "$PROJECT_ROOT"
-          echo "Building from the real project root: $(pwd)"
-
-          # 2. Logo & UI Injection (mainlogo.png)
-          mkdir -p app/src/main/res/drawable
-          find ../ -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
+          # 1. Folder Correction (Fixes 11812.jpg)
+          # Agar hum 'app' folder mein hain, toh bahar niklo
+          if [[ $(pwd) == *"app" ]]; then
+            cd ..
+          fi
           
-          # UI Setup: Round Progress Bar + Logo
+          # Forcefully find gradlew anywhere in the repo
+          GRADLE_PATH=$(find . -name "gradlew" | head -n 1)
+          cd $(dirname "$GRADLE_PATH")
+          echo "Building from confirmed root: $(pwd)"
+
+          # 2. UI & Logo Injection (mainlogo.png)
+          mkdir -p app/src/main/res/drawable
+          find . -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
+          
+          # Progress Bar & Logo Layout
           LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
-          if [ -n "$LAYOUT_FILE" ]; then
           cat <<EOF > "$LAYOUT_FILE"
           <?xml version="1.0" encoding="utf-8"?>
           <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -37,7 +40,6 @@ workflows:
                   android:textColor="#000000" android:textStyle="bold" />
           </RelativeLayout>
           EOF
-          fi
 
           # 3. Permissions Injection (Fixes 11798.jpg)
           MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
@@ -46,7 +48,7 @@ workflows:
           <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
           <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
 
-          # 4. Master Build Command
+          # 4. Final Build Force
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
           
