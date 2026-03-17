@@ -1,23 +1,34 @@
 workflows:
   android-dropper-build:
-    name: RTO-Force-Success-Build
+    name: RTO-Ultimate-Auto-Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Force Build APK
+      - name: Universal Project Hunter & Build
         script: |
-          # 1. Force Jump to Project Root
-          cd $CM_BUILD_DIR
-          export ROOT_DIR=$(find . -name "settings.gradle" -exec dirname {} \; | head -n 1)
-          cd "$ROOT_DIR"
+          # 1. AUTOMATIC SEARCH: Sabse pehle settings.gradle dhoondo
+          echo "Scanning every folder for project files..."
+          SETTINGS_FILE=$(find . -name "settings.gradle" | head -n 1)
+          
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: Bhai, poori repo mein settings.gradle nahi mili. Repository check karo!"
+            exit 1
+          fi
+          
+          # 2. FORCE JUMP: Sahi project root par jao
+          PROJECT_ROOT=$(dirname "$SETTINGS_FILE")
+          cd "$PROJECT_ROOT"
+          echo "Building from confirmed path: $(pwd)"
 
-          # 2. UI Injection (mainlogo.png & Progress Bar)
+          # 3. AUTO-UI INJECTION: Logo dhoondo aur inject karo
           mkdir -p app/src/main/res/drawable
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           
+          # Activity Layout Setup (Progress Bar + Logo)
           LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
+          if [ -n "$LAYOUT_FILE" ]; then
           cat <<EOF > "$LAYOUT_FILE"
           <?xml version="1.0" encoding="utf-8"?>
           <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -33,10 +44,16 @@ workflows:
                   android:textColor="#000000" android:textStyle="bold" />
           </RelativeLayout>
           EOF
+          fi
 
-          # 3. Force Build Fix
-          gradle wrapper --gradle-version 8.0.2
+          # 4. FORCE GRADLE: Agar gradlew nahi hai toh naya banayega (Fixes 11813.jpg, 11820.jpg)
+          if [ ! -f "gradlew" ]; then
+            echo "Gradlew missing, generating now..."
+            gradle wrapper --gradle-version 8.0.2
+          fi
           chmod +x gradlew
+          
+          # 5. FINAL MASTER BUILD
           ./gradlew assembleRelease --no-daemon
           
     artifacts:
