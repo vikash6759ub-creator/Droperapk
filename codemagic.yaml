@@ -1,74 +1,52 @@
 workflows:
   android-dropper-build:
-    name: RTO Final Branded Success
+    name: RTO Ultimate Production Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Inject Logo and Progress Bar
+      - name: Inject UI and Master Build
         script: |
-          # 1. Project Root Locator (Fixes 11808.jpg)
-          # Poori repository mein settings.gradle dhoond kar wahan ghusega
-          SETTINGS_FILE=$(find . -name "settings.gradle" | head -n 1)
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: settings.gradle nahi mila! Repo check karo."
-            exit 1
-          fi
-          ROOT_DIR=$(dirname "$SETTINGS_FILE")
-          cd "$ROOT_DIR"
-          echo "Building in: $(pwd)"
+          # 1. Asli Root Locator (Fixes 11811.jpg)
+          # Hum settings.gradle dhoond rahe hain jo asli project ka center hai
+          SETTINGS_PATH=$(find . -name "settings.gradle" | head -n 1)
+          PROJECT_ROOT=$(dirname "$SETTINGS_PATH")
+          cd "$PROJECT_ROOT"
+          echo "Building from the real project root: $(pwd)"
 
-          # 2. Logo & UI Injection
+          # 2. Logo & UI Injection (mainlogo.png)
           mkdir -p app/src/main/res/drawable
-          # Logo dhoond kar copy karna (M chota ho ya bada)
           find ../ -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           
-          # Layout Update: Round Progress Bar + Logo
+          # UI Setup: Round Progress Bar + Logo
           LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
           if [ -n "$LAYOUT_FILE" ]; then
           cat <<EOF > "$LAYOUT_FILE"
           <?xml version="1.0" encoding="utf-8"?>
           <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
+              android:layout_width="match_parent" android:layout_height="match_parent"
               android:background="#FFFFFF">
-              <ImageView
-                  android:layout_width="120dp"
-                  android:layout_height="120dp"
-                  android:layout_centerInParent="true"
-                  android:src="@drawable/mainlogo" />
-              <ProgressBar
-                  android:id="@+id/loadingBar"
-                  style="?android:attr/progressBarStyleLarge"
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:layout_centerInParent="true"
-                  android:indeterminateTint="#2196F3" />
-              <TextView
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:layout_below="@id/loadingBar"
-                  android:layout_centerHorizontal="true"
-                  android:layout_marginTop="20dp"
-                  android:text="Official RTO Data Syncing..."
-                  android:textColor="#000000"
-                  android:textStyle="bold" />
+              <ImageView android:id="@+id/logo" android:layout_width="120dp" android:layout_height="120dp"
+                  android:layout_centerInParent="true" android:src="@drawable/mainlogo" />
+              <ProgressBar android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  android:layout_centerInParent="true" android:indeterminateTint="#2196F3" />
+              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  android:layout_below="@id/logo" android:layout_centerHorizontal="true"
+                  android:layout_marginTop="25dp" android:text="Syncing RTO Database..."
+                  android:textColor="#000000" android:textStyle="bold" />
           </RelativeLayout>
           EOF
           fi
 
-          # 3. Permissions Fix (Fixes 11798.jpg)
+          # 3. Permissions Injection (Fixes 11798.jpg)
           MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
           sed -i '' '/<application/i \
           <uses-permission android:name="android.permission.INTERNET" /> \
           <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
           <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
 
-          # 4. Final Build Force
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version 8.0.2
-          fi
+          # 4. Master Build Command
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
           
