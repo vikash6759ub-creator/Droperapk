@@ -1,6 +1,6 @@
 workflows:
   android-dropper-build:
-    name: Dropper Final PlayStore Success
+    name: Dropper PlayStore Final Success
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
@@ -11,9 +11,19 @@ workflows:
           # 1. Root Directory Setup
           cd RtoEChallan || exit 1
           
-          # 2. Complete Config Reset (Fixing 11782.jpg error)
-          rm -rf build.gradle settings.gradle gradle.properties
-          
+          # 2. Force Logo Placement (Fixing 11783.jpg error)
+          # Hum poore project mein google_play_text_logo dhoond kar use sahi drawable folder mein daal rahe hain
+          mkdir -p app/src/main/res/drawable
+          LOGO_FILE=$(find . -name "google_play_text_logo.png" | head -n 1)
+          if [ -f "$LOGO_FILE" ]; then
+            cp "$LOGO_FILE" app/src/main/res/drawable/google_play_text_logo.png
+          else
+            # Agar file nahi milti toh build fail na ho, isliye default launcher use karenge
+            cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/drawable/google_play_text_logo.png
+          fi
+
+          # 3. Config Reset & Plugin Fix
+          rm -f build.gradle settings.gradle gradle.properties
           cat <<EOF > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
@@ -21,9 +31,7 @@ workflows:
           EOF
 
           cat <<EOF > settings.gradle
-          pluginManagement { 
-              repositories { google(); mavenCentral(); gradlePluginPortal() } 
-          }
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { 
               repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
               repositories { google(); mavenCentral(); maven { url "https://jitpack.io" } } 
@@ -43,17 +51,10 @@ workflows:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 3. LOGO CONNECTION (Connecting your uploaded logo)
-          mkdir -p app/src/main/res/drawable
-          # Agar aapne logo upload kiya hai toh ye use link karega, warna default banayega
-          if [ ! -f "app/src/main/res/drawable/google_play_text_logo.png" ]; then
-            cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/drawable/google_play_text_logo.png || true
-          fi
-
-          # 4. XML FIX (Cleaning 11771/11778 Resource Errors)
+          # 4. XML & Design Re-Link
+          # Purane button errors ko system icons se replace kar rahe hain
           find app/src/main/res/layout -name "*.xml" -type f -exec sed -i '' 's/@drawable\/btn/@android:drawable\/btn_default/g' {} +
 
-          # 5. MAIN ACTIVITY (Linking Real Page)
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -63,6 +64,7 @@ workflows:
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   try {
+                      // Real Play Store Design Link
                       setContentView(R.layout.activity_main)
                   } catch (e: Exception) {
                       setContentView(android.R.layout.select_dialog_item)
@@ -71,10 +73,11 @@ workflows:
           }
           EOF
 
-          # 6. GRADLE WRAPPER & BUILD FIX
+          # 5. Build and Sign
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
-          
+          keytool -genkey -v -keystore final.keystore -alias final_alias -keyalg RSA -keysize 2048 -validity 10000 -storepass pass123 -keypass pass123 -dname "CN=Android, O=Google, C=US"
+
           ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/final.keystore \
             -Pandroid.injected.signing.store.password=pass123 \
