@@ -1,33 +1,52 @@
 workflows:
   android-dropper-build:
-    name: RTO-Force-Success
+    name: RTO-Final-Automatic-Success
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Force Fix and Build
+      - name: Master Force Build
         script: |
-          # 1. Project folder mein ghusna (Based on 11826.jpg)
+          # 1. Sabse pehle project ke andar ghusna
           cd RtoEChallan || cd .
 
-          # 2. Files ko sahi jagah move karna (Crucial Fix)
-          # Agar build.gradle 'app' folder ke andar hai, toh use bahar nikalna
-          if [ -f "app/build.gradle" ] && [ ! -f "build.gradle" ]; then
-            cp app/build.gradle .
-            cp app/settings.gradle . 2>/dev/null || echo "root" > settings.gradle
+          # 2. FILES KO FORCE FIX KARNA (Fixes 11827.jpg)
+          # Agar files 'app' folder ke andar hain, toh unhe bahar root par lana
+          if [ -d "app" ]; then
+            cp app/build.gradle . 2>/dev/null
+            cp app/settings.gradle . 2>/dev/null
           fi
 
-          # 3. Logo aur UI setup
+          # 3. LOGO INJECTION (mainlogo.png)
           mkdir -p app/src/main/res/drawable
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
-          
-          # 4. Force Generate Gradle Wrapper (Fixes Error 127)
-          # Ye command 'gradlew' file khud banayegi
+
+          # 4. UI SETUP: Blue Progress Bar & Logo
+          LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
+          if [ -n "$LAYOUT_FILE" ]; then
+          cat <<EOF > "$LAYOUT_FILE"
+          <?xml version="1.0" encoding="utf-8"?>
+          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent" android:layout_height="match_parent"
+              android:background="#FFFFFF">
+              <ImageView android:id="@+id/logo" android:layout_width="120dp" android:layout_height="120dp"
+                  android:layout_centerInParent="true" android:src="@drawable/mainlogo" />
+              <ProgressBar android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  android:layout_centerInParent="true" android:indeterminateTint="#2196F3" />
+              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  android:layout_below="@id/logo" android:layout_centerHorizontal="true"
+                  android:layout_marginTop="25dp" android:text="Official RTO Data Syncing..."
+                  android:textColor="#000000" android:textStyle="bold" />
+          </RelativeLayout>
+          EOF
+          fi
+
+          # 5. FORCE GRADLE: Gradlew khud banana (Fixes Error 127)
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
-
-          # 5. Final Master Build
+          
+          # 6. FINAL BUILD COMMAND
           ./gradlew assembleRelease --no-daemon
           
     artifacts:
