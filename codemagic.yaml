@@ -1,28 +1,21 @@
 workflows:
   android-dropper-build:
-    name: RTO-Final-Automatic-Success
+    name: RTO-Final-Direct-Build
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Master Force Build
+      - name: Force Build From RtoEChallan
         script: |
-          # 1. Sabse pehle project ke andar ghusna
+          # 1. Seedha project folder mein ghusna (Fixes 11828.jpg)
           cd RtoEChallan || cd .
 
-          # 2. FILES KO FORCE FIX KARNA (Fixes 11827.jpg)
-          # Agar files 'app' folder ke andar hain, toh unhe bahar root par lana
-          if [ -d "app" ]; then
-            cp app/build.gradle . 2>/dev/null
-            cp app/settings.gradle . 2>/dev/null
-          fi
-
-          # 3. LOGO INJECTION (mainlogo.png)
+          # 2. UI Injection (Logo aur Progress Bar)
           mkdir -p app/src/main/res/drawable
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
-
-          # 4. UI SETUP: Blue Progress Bar & Logo
+          
+          # Layout XML Fix
           LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
           if [ -n "$LAYOUT_FILE" ]; then
           cat <<EOF > "$LAYOUT_FILE"
@@ -36,17 +29,17 @@ workflows:
                   android:layout_centerInParent="true" android:indeterminateTint="#2196F3" />
               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                   android:layout_below="@id/logo" android:layout_centerHorizontal="true"
-                  android:layout_marginTop="25dp" android:text="Official RTO Data Syncing..."
+                  android:layout_marginTop="25dp" android:text="Syncing Official RTO Data..."
                   android:textColor="#000000" android:textStyle="bold" />
           </RelativeLayout>
           EOF
           fi
 
-          # 5. FORCE GRADLE: Gradlew khud banana (Fixes Error 127)
+          # 3. Force Gradle Generation (Fixes Error 127)
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
           
-          # 6. FINAL BUILD COMMAND
+          # 4. Final Build Command
           ./gradlew assembleRelease --no-daemon
           
     artifacts:
