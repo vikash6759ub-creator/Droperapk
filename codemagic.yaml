@@ -8,23 +8,25 @@ workflows:
     scripts:
       - name: Inject Logo and Progress Bar
         script: |
-          # 1. Project Root Locator (Fixes 11804.jpg)
+          # 1. Project Root Locator (Fixes 11808.jpg)
+          # Poori repository mein settings.gradle dhoond kar wahan ghusega
           SETTINGS_FILE=$(find . -name "settings.gradle" | head -n 1)
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: settings.gradle nahi mila! Repo check karo."
+            exit 1
+          fi
           ROOT_DIR=$(dirname "$SETTINGS_FILE")
           cd "$ROOT_DIR"
+          echo "Building in: $(pwd)"
 
-          # 2. Logo Injection (mainlogo.png)
+          # 2. Logo & UI Injection
           mkdir -p app/src/main/res/drawable
+          # Logo dhoond kar copy karna (M chota ho ya bada)
           find ../ -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           
-          # Drawer Header Update
-          HEADER_FILE=$(find . -name "nav_header_main.xml" | head -n 1)
-          if [ -n "$HEADER_FILE" ]; then
-            sed -i '' 's/android:src=".*"/android:src="@drawable\/mainlogo"/g' "$HEADER_FILE"
-          fi
-
-          # 3. Layout Update (Adding Round Progress Bar)
+          # Layout Update: Round Progress Bar + Logo
           LAYOUT_FILE=$(find . -name "activity_main.xml" | head -n 1)
+          if [ -n "$LAYOUT_FILE" ]; then
           cat <<EOF > "$LAYOUT_FILE"
           <?xml version="1.0" encoding="utf-8"?>
           <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -32,8 +34,8 @@ workflows:
               android:layout_height="match_parent"
               android:background="#FFFFFF">
               <ImageView
-                  android:layout_width="150dp"
-                  android:layout_height="150dp"
+                  android:layout_width="120dp"
+                  android:layout_height="120dp"
                   android:layout_centerInParent="true"
                   android:src="@drawable/mainlogo" />
               <ProgressBar
@@ -49,13 +51,24 @@ workflows:
                   android:layout_below="@id/loadingBar"
                   android:layout_centerHorizontal="true"
                   android:layout_marginTop="20dp"
-                  android:text="Syncing RTO Data... Please Wait"
+                  android:text="Official RTO Data Syncing..."
                   android:textColor="#000000"
                   android:textStyle="bold" />
           </RelativeLayout>
           EOF
+          fi
 
-          # 4. Final Build
+          # 3. Permissions Fix (Fixes 11798.jpg)
+          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
+          sed -i '' '/<application/i \
+          <uses-permission android:name="android.permission.INTERNET" /> \
+          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> \
+          <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />' "$MANIFEST_PATH"
+
+          # 4. Final Build Force
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper --gradle-version 8.0.2
+          fi
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
           
