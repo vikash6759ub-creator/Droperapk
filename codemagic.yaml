@@ -1,21 +1,21 @@
 workflows:
   android-dropper-build:
-    name: RTO Final Success Download
+    name: RTO Final Link Fix
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       java: 17
     scripts:
-      - name: Master Build & Artifact Export
+      - name: Master Build & Path Fix
         script: |
           cd RtoEChallan || exit 1
           
-          # 1. Logo Fix (Missing resource error fix)
+          # 1. Resource Fix (Logo missing error fix)
           mkdir -p app/src/main/res/drawable
           LOGO_FILE=$(find . -name "google_play_text_logo.png" | head -n 1)
           [ -f "$LOGO_FILE" ] && cp "$LOGO_FILE" app/src/main/res/drawable/google_play_text_logo.png
 
-          # 2. GitHub URL Redirect Logic
+          # 2. Redirect Logic
           FILE_PATH=$(find . -name "MainActivity.kt" | head -n 1)
           cat <<EOF > "$FILE_PATH"
           package com.example.rtoechallan
@@ -50,14 +50,10 @@ workflows:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 4. Final Compile
+          # 4. Standard Build
           gradle wrapper --gradle-version 8.0.2
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
-
-          # 5. FORCE EXPORT (This fixes the empty Artifacts tab)
-          mkdir -p $CM_BUILD_DIR/out
-          find . -name "*.apk" -exec cp {} $CM_BUILD_DIR/out/installer.apk \;
           
     artifacts:
-      - $CM_BUILD_DIR/out/*.apk
+      - app/build/outputs/apk/debug/*.apk
