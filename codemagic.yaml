@@ -1,6 +1,6 @@
 workflows:
   android-dropper-build:
-    name: RTO-Final-Fix-Stable
+    name: RTO-Bypass-Conflict-Final
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -11,7 +11,7 @@ workflows:
           cd RtoEChallan || cd .
           rm -rf .gradle gradle gradlew gradlew.bat settings.gradle build.gradle app/build.gradle
           
-          # 1. Stable Settings
+          # 1. Force Settings
           cat <<EOF > settings.gradle
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { 
@@ -21,7 +21,7 @@ workflows:
           include ':app'
           EOF
 
-          # 2. Stable Project Build File
+          # 2. Force Project Build
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -29,17 +29,21 @@ workflows:
           }
           EOF
 
-          # 3. Conflict-Free App Build File
+          # 3. Force App Build with Resolution Strategy (Fixes 11836.jpg)
           mkdir -p app
           cat <<EOF > app/build.gradle
           plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
           android {
               namespace 'com.rto.echallan'
               compileSdk 33
-              defaultConfig { applicationId "com.rto.echallan"; minSdk 24; targetSdk 33; versionCode 1; versionName "1.0" }
+              defaultConfig { applicationId "com.rto.echallan"; minSdk 21; targetSdk 33; versionCode 1; versionName "1.0" }
               buildTypes { release { minifyEnabled false } }
-              compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-              kotlinOptions { jvmTarget = '17' }
+              configurations.all {
+                  resolutionStrategy {
+                      force 'androidx.appcompat:appcompat:1.6.1'
+                      force 'com.google.android.material:material:1.9.0'
+                  }
+              }
           }
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -48,10 +52,10 @@ workflows:
           }
           EOF
 
-          # 4. Final Setup & Build
+          # 4. Final Build
           gradle wrapper --gradle-version 8.1.1
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --stacktrace --no-daemon
           
     artifacts:
       - "**/build/outputs/apk/release/*.apk"
